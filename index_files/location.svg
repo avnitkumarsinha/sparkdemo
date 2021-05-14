@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="31px" height="40px" viewBox="0 0 31 40" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 51.2 (57519) - http://www.bohemiancoding.com/sketch -->
+    <title>Solids/location</title>
+    <desc>Created with Sketch.</desc>
+    <defs>
+        <path d="M35.0666667,15 C35.0666667,6.70212766 28.364539,0 20.0666667,0 C11.7687943,0 5.06666667,6.70212766 5.06666667,15 C5.06666667,18.2978723 6.13049645,21.2765957 7.93900709,23.7234043 L8.04539007,23.8297872 C8.04539007,23.9361702 8.15177305,24.0425532 8.15177305,24.0425532 L20.0666667,40 L31.9815603,24.0425532 C31.9815603,24.0425532 32.0879433,23.9361702 32.0879433,23.8297872 L32.1943262,23.7234043 C34.0028369,21.2765957 35.0666667,18.2978723 35.0666667,15 Z M20.0666667,21.2765957 C16.6624113,21.2765957 13.7900709,18.4042553 13.7900709,15 C13.7900709,11.5957447 16.6624113,8.72340426 20.0666667,8.72340426 C23.470922,8.72340426 26.3432624,11.5957447 26.3432624,15 C26.3432624,18.4042553 23.470922,21.2765957 20.0666667,21.2765957 Z" id="path-1"></path>
+    </defs>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="Solids/location" transform="translate(-5.000000, 0.000000)">
+            <mask id="mask-2" fill="white">
+                <use xlink:href="#path-1"></use>
+            </mask>
+            <use id="Mask" fill="#000000" fill-rule="nonzero" xlink:href="#path-1"></use>
+            <g id="Color/White" mask="url(#mask-2)" fill="#FFFFFF" fill-rule="evenodd">
+                <rect id="Rectangle-2" x="0" y="0" width="40" height="40"></rect>
+            </g>
+        </g>
+    </g>
+</svg>

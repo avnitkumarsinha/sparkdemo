@@ -1,0 +1,678 @@
+(function(document, $, undefined){
+
+   /**
+    * Makes animation on Focus and on Focusout events.
+    *
+    * @param textField
+    * @private
+    */
+    function _onFocus(textField) {
+        $(textField).toggleClass('spark-SparkForm--Text-focused');
+        $(textField).siblings('label').toggleClass('spark-SparkForm--Text-Label--focused');
+    }
+
+    $(document).ready(function() {
+        $('.spark-SparkForm--Text').each(function() {
+            $(this).find('.cmp-form-text__text').focus(function() {
+               _onFocus(this);
+            }).focusout(function() {
+               _onFocus(this);
+            });
+        });
+    });
+})(document, $);
+(function(document, $, undefined){
+
+    const addressSuggestionListBodyTemplate = '<ui role="listbox" class="spark-SparkForm--Text--addressSuggestionList"></ui>';
+    const addressSuggestionListItemTemplate = '<li role="option" class="spark-SparkForm--Text--addressSuggestionListItem"></li>';
+
+    /**
+     * Binds functions to validate user's input
+     * @private
+     */
+    function _bindAddressChecker() {
+        const $addressField = $('.spark-SparkForm--Text input[type="address"]')
+        $addressField.keyup(function () {
+            const searchCriteria = $(this).val();
+            if (searchCriteria.length < 5) {
+                return;
+            }
+            _terraLinkCall(searchCriteria, $(this).parent());
+            _bindHover($(this));
+            _bindOnClick($(this));
+        });
+        $addressField.on('change', function() {
+            $(this).siblings('input[name="ELID"]').remove();
+        });
+    }
+
+    /**
+     *
+     * Terralink successful callback. Shows results in a drop down window
+     *
+     * @param data
+     * @private
+     */
+    function _terraLinkSuccessCallback(data, $addressFieldParent) {
+        if (data.retrieveLocationResponse.typeAheadSearch) {
+            const $addressSuggestion = $addressFieldParent.find('.spark-SparkForm--Text--addressSuggestion');
+            const $addressSuggestionListBody = $(addressSuggestionListBodyTemplate);
+            const $searchResult = $(data.retrieveLocationResponse.typeAheadSearch);
+            $addressSuggestion.find('.spark-SparkForm--Text--addressSuggestionList').remove();
+            $searchResult.each(function(index) {
+                const searchItem = this;
+                const $addressSuggestionListItem = $(addressSuggestionListItemTemplate);
+                $addressSuggestionListItem.text(searchItem.label)
+                $addressSuggestionListItem.attr('data-elid', searchItem.elid);
+                $addressSuggestionListItem.attr('tabindex', index);
+                $addressSuggestionListBody.append($addressSuggestionListItem);
+            });
+            $addressSuggestion.append($addressSuggestionListBody);
+            $addressSuggestion.removeClass('spark-SparkForm--Text--addressSuggestionList-hidden');
+        }
+    }
+
+    /**
+     * Calls Terralink proxy in AEM
+     * @param searchCriteria
+     * @private
+     */
+    function _terraLinkCall(searchCriteria, $addressFieldParent) {
+        $.ajax(
+            {
+                url: '/bin/tnz/public/shop/checkout/terralinkautocomplete.json',
+                dataType: 'json',
+                async: true,
+                data: {
+                    term: searchCriteria,
+                    isAddressChecker: true
+                },
+                success: function(data) {
+                    _terraLinkSuccessCallback(data, $addressFieldParent)
+                }
+            }
+        );
+    }
+
+    /**
+     * Binds mouse enter events to <li> elements.
+     *
+     * @param $inputAddress
+     * @private
+     */
+    function _bindHover($inputAddress) {
+        $inputAddress
+            .siblings('.spark-SparkForm--Text--addressSuggestion')
+            .on('mouseenter', 'li', function() {
+                $(this).addClass('spark-SparkForm--Text--addressSuggestionListItem-focused');
+            }).on('mouseleave', 'li', function() {
+            $(this).removeClass('spark-SparkForm--Text--addressSuggestionListItem-focused');
+        });
+    }
+
+    /**
+     * On click handler. Deletes result search from Terralink and creates a hidden input with ELID value.
+     *
+     * @param $inputAddress
+     * @private
+     */
+    function _bindOnClick($inputAddress) {
+        $inputAddress
+            .siblings('.spark-SparkForm--Text--addressSuggestion')
+            .on('click', 'li', function(event) {
+                const $item = $(this);
+                const elid = $item.attr('data-elid');
+                const $address = $item.parent().parent().siblings('.spark-SparkForm--Text input[type="address"]');
+                if (elid) {
+                    $inputAddress.val($item.text());
+                    if ($address.siblings('input[name="ELID"]').length) {
+                        $address.siblings('input[name="ELID"]').val(elid);
+                    } else {
+                        $address.after($('<input name="ELID" type="hidden">').val(elid));
+                    }
+                }
+                const $addressSuggestion = $address.siblings('.spark-SparkForm--Text--addressSuggestion');
+                $addressSuggestion.find('.spark-SparkForm--Text--addressSuggestionList').remove();
+                $addressSuggestion.addClass('spark-SparkForm--Text--addressSuggestionList-hidden');
+            });
+    }
+
+    $(document).ready(function() {
+        _bindAddressChecker();
+    });
+})(document, $);
+(function($){
+
+   /**
+    * Applies styles to selected/unselected radio buttons
+    *
+    * @param $options
+    * @param $element
+    * @private
+    */
+   function _onClickHandler($options, $element) {
+      // remove all 'selected' styles
+      $options.find('.spark-SparkForm--Options--border-outer').each(function() {
+         $(this).removeClass('spark-SparkForm--Options--border-outer--selected');
+         $(this).siblings('.spark-SparkForm--Options--border-inner').hide();
+      });
+
+      // apply styles to selected by a user element
+      $element.toggleClass('spark-SparkForm--Options--border-outer--selected');
+      $element.siblings('.spark-SparkForm--Options--border-inner').show();
+   }
+
+   /**
+    * Applies styles to selected by default radio button
+    *
+    * @param $options
+    * @private
+    */
+   function _selectElement($options) {
+      $options.find('input:checked').each(function() {
+         const $input = $(this);
+
+         // throw a click event
+         $input.siblings('.spark-SparkForm--Options--border-outer').click();
+      });
+   }
+
+   $(document).ready(function() {
+      // look for all options elements
+      $('.spark-SparkForm--Options .cmp-form-options--radio').each(function() {
+         const $options = $(this);
+         $options.find('.spark-SparkForm--Options--border-outer').click(function() {
+            // pass a parent options with a selected radio
+            _onClickHandler($options, $(this));
+         });
+
+         // apply styles to selected by default radio
+         _selectElement($options);
+      });
+   });
+})(jQuery);
+(function($){
+
+    /**
+     * Handles on focus event
+     *
+     * @param element
+     * @private
+     */
+    function _onFocusHandler(element) {
+        $(element).siblings('.spark-SparkForm--Options--dropdown-label')
+            .toggleClass('spark-SparkForm--Options--dropdown-label-selected');
+        $(element).toggleClass('spark-SparkForm--Option--selected');
+    }
+
+    $(document).ready(function() {
+        $('.spark-SparkForm--Options--dropdown-label').on('click', function(event) {
+            event.stopPropagation();
+            return false;
+        });
+
+        // look for all options elements
+        $('.spark-SparkForm--Options .cmp-form-options__field--drop-down').each(function() {
+            $(this).click(function() {
+                _onFocusHandler(this);
+            }).focusout(function() {
+                _onFocusHandler(this);
+            });
+
+        });
+    });
+})(jQuery);
+(function($){
+
+    function _onClickHandler(element) {
+        const $innerBlock = $(element).siblings('.spark-SparkForm--Options--border-inner');
+        const $inputField = $(element).siblings('input');
+
+        $(element).toggleClass('spark-SparkForm--Options--border-outer--selected');
+        if ($innerBlock.is(":visible")) {
+            $innerBlock.hide();
+            $inputField.removeAttr('selected');
+        } else {
+            $innerBlock.show();
+            $inputField.attr('selected', '');
+        }
+    }
+
+    $(document).ready(function() {
+        $('.spark-SparkForm--Options--checkbox .spark-SparkForm--Options--border-outer').each(function() {
+            $(this).click(function() {
+                _onClickHandler(this);
+            });
+        });
+    });
+})(jQuery);
+/**
+ * This checkbox toggle functionality is referenced from below.
+ * https://github.com/pankajchhatri/AEM/blob/master/Developer%20course/checkbox-showhide.js
+ */
+(function (document, $, undefined) {
+    "use strict";
+    // when dialog gets injected
+    $(document).on("foundation-contentloaded", function (e) {
+        // if there is already an inital value make sure the according target element becomes visible
+        checkboxShowHideHandler($(".cq-dialog-checkbox-showhide", e.target));
+    });
+
+    $(document).on("change", ".cq-dialog-checkbox-showhide", function (e) {
+        checkboxShowHideHandler($(this));
+    });
+
+    function checkboxShowHideHandler(el) {
+        el.each(function (i, element) {
+            if($(element).is("coral-checkbox")) {
+                // handle Coral3 base drop-down
+                Coral.commons.ready(element, function (component) {
+                    showHide(component, element);
+                    component.on("change", function () {
+                        showHide(component, element);
+                    });
+                });
+            } else {
+                // handle Coral2 based drop-down
+                var component = $(element).data("checkbox");
+                if (component) {
+                    showHide(component, element);
+                }
+            }
+        })
+    }
+
+    function showHide(component, element) {
+        console.log('showing');
+        // get the selector to find the target elements. its stored as data-.. attribute
+        var target = $(element).data("cqDialogCheckboxShowhideTarget");
+        var $target = $(target);
+
+        if (target) {
+            $target.addClass("hide");
+            if (component.checked) {
+                $target.removeClass("hide");
+            }
+        }
+    }
+})(document, $);
+(function(document, $, undefined) {
+
+    /**
+     * Binds functions to populate given url paramter value to input field element.
+     *
+     * @private
+     */
+    function _bindHiddenParameter() {
+        const $input = $('.spark-SparkForm--Hidden').find('input[type=hidden]');
+        $input.each(function() {
+            const hiddenParamValue = $(this).val();
+            const fieldIdToPopolate = $(this).attr('data-populate-field-id');
+            const isMakeFieldReadOnly = $(this).attr('data-make-field-readOnly');
+            _popolateHiddenParameterToField(hiddenParamValue, fieldIdToPopolate, isMakeFieldReadOnly);
+        });
+    }
+
+    /**
+     * Populates given hidden parameter value to a given input field id.
+     *
+     * @param hiddenParamValue
+     * @param fieldIdToPopolate
+     * @param isMakeFieldReadOnly
+     * @private
+     */
+    function _popolateHiddenParameterToField(hiddenParamValue, fieldIdToPopolate, isMakeFieldReadOnly) {
+
+        const $inputField = $('input[name=' + fieldIdToPopolate + ']')
+
+        if ($inputField.length && hiddenParamValue !== undefined && hiddenParamValue !== '') {
+            $inputField.val(window.atob(hiddenParamValue));
+            if ($inputField.attr('type') === 'address') {
+                _getElidForAddress(window.atob(hiddenParamValue).slice(0, -4), $inputField);
+            }
+        }
+
+        if (isMakeFieldReadOnly && isMakeFieldReadOnly == 'true') {
+            $inputField.prop('readonly', true);
+        } else {
+            $inputField.prop('readonly', false);
+        }
+
+    }
+
+    /**
+     * Makes a call to terralink proxy in AEM
+     *
+     * @param address
+     * @param $inputField
+     * @private
+     */
+    function _getElidForAddress(address, $inputField) {
+        $.ajax({
+            url : '/bin/tnz/public/shop/checkout/terralinkautocomplete.json',
+            dataType : 'json',
+            async : true,
+            data : {
+                term : address,
+                isAddressChecker : true
+            },
+            success : function(data) {
+                _renderElid(data, $inputField);
+            }
+        });
+    }
+
+    /**
+     * Renders elid as hidden input field to the given address field.
+     *
+     * @param data
+     * @param $inputField
+     * @private
+     */
+    function _renderElid(data, $inputField) {
+        if (data.retrieveLocationResponse.typeAheadSearch) {
+            const $searchResult = $(data.retrieveLocationResponse.typeAheadSearch);
+            $searchResult.each(function() {
+                const elid = this.elid;
+                if ($inputField.siblings('input[name="ELID"]').length) {
+                    $inputField.siblings('input[name="ELID"]').val(elid);
+                } else {
+                    $inputField.after($('<input name="ELID" type="hidden">').val(elid));
+                }
+            });
+        }
+    }
+
+    $(document).ready(function() {
+        _bindHiddenParameter();
+    });
+})(document, $);
+(function($){
+    // This implementation is interim and will be replaced in the next sprint.
+    // Target solution includes OOTB Style System and editable templates.
+    $(document).ready(function() {
+        if ($('.spark-SparkForm--Container').length) {
+            // It needs to be set up as a separate style  and configured in a
+            // content policy using editable templates. Due to luck of time
+            // improvement will be released in the next sprint.
+            $('body').addClass('spark-SparkForm--ContainerFluid');
+            $('.container-fluid').addClass('spark-SparkForm--ContainerFluid');
+        }
+    });
+})(jQuery);
+(function(document, $, undefined){
+
+    /**
+     * Binds on submit action handler.
+     * 
+     * @private
+     */
+    function _bindValidation() {
+        const $form = $('.spark-SparkForm--Container > form');
+
+        $form.each(function() {
+            $(this).submit(function(event) {
+                const $form = $(this);
+
+                _validateFields($form);
+
+                if ($form.find('.spark-SparkForm--validationMessage-show').length) {
+                    event.stopPropagation();
+                    return false;
+                };
+                _trackFormSubmit($form);
+            })
+        });
+    }
+
+    /**
+     * Send the event information to adobe tracking.
+     * 
+     * @private
+     */
+    function _trackFormSubmit($form) {
+        try {
+            var $tracking = $form.find("span[data-type='tracking']");
+            if ($tracking.length > 0 && typeof adobeTrackingUtils === 'object' && typeof adobeTrackingUtils.trackActivityMapLink === 'function') {
+                const eventName = $tracking.data("event-name");
+                const eventAction = $tracking.data("event-action");
+                if (eventName && eventAction) {
+                    if ("campaign" === $tracking.data("tracking-type")) {
+                        adobeTrackingUtils.trackEvent({
+                            "eventInfo": {
+                                eventName: eventName,
+                                eventAction: eventAction
+                            },
+                            "attributes": {
+                                "campaignDetails": _buildTrackingCampaignDetail($tracking, $form)
+                            }
+                        });
+                    }
+                }
+            }
+        } catch(e) {
+        }
+    }
+
+    /**
+     * Build the campaign form detail for tracking.
+     * 
+     * @param $tracking
+     * @private
+     */
+    function _buildTrackingCampaignDetail($tracking, $form) {
+        const campaignDetails = {
+            "isSuccess": "true"
+        };
+        _addEntry(campaignDetails, "name", $tracking.data("form-type"));
+        _addEntry(campaignDetails, "type", $tracking.data("form-subtype"));
+        _trackValues(campaignDetails, $tracking.data("param-track"), (window.location.search.substring(1).split("&")).reduce(function (obj, value) {
+            var param = value.split("=");
+            if (param.length === 2) {
+                obj[param[0]] = param[1];
+            }
+            return obj;
+        }, {}));
+        _trackValues(campaignDetails, $tracking.data("field-track"), $($form).serializeArray().reduce(function (obj, field) {
+            obj[field.name] = field.value;
+            return obj;
+        }, {}));
+        return campaignDetails;
+    }
+
+    /**
+     * Add entry into the obj if the key and value are valid.
+     * 
+     * @param obj target object to add entry
+     * @param key of entry
+     * @param value of entry
+     * @private
+     */
+    function _addEntry(obj, key, value) {
+        if ('object' === typeof obj && key && value) {
+            obj[key] = value;
+        }
+    }
+
+    /**
+     * Get the key from trackFields and valueObj
+     * 
+     * @param target object to add entry
+     * @param trackFields array of fields (name and tracking name) to track.
+     * @param valueObj with field name as key and corresponding value to send to tracking
+     * @private
+     */
+    function _trackValues(target, trackFields, valueObj) {
+        if ($.isArray(trackFields) && trackFields.length > 0 && 'object' === typeof valueObj) {
+            trackFields.map(function(field) {
+                if (field.name && field.trackingName && valueObj[field.name]) {
+                    _addEntry(target, field.trackingName, valueObj[field.name]);
+                }
+            });
+        }
+    }
+
+    /**
+     * Validates mandatory field and manages styles
+     * 
+     * @param $form
+     * @private
+     */
+    function _validateFields($form) {
+        // checkbox is mandatory as of know
+        const $fields = $form.find('input[mandatory], input[type="checkbox"]');
+
+        $fields.each(function() {
+            const $field = $(this);
+            const fieldValue = $field.val()
+            const regexPattern = $field.data('regex');
+
+            // for now checkbox is a mandatory attribute
+            if ($(this).attr('type') === 'checkbox') {
+                const $validationWrapper = $field.closest('fieldset').find('.spark-SparkForm--validationMessage');
+
+                if (this.hasAttribute('selected')) {
+                    _hideValidationErrorMessage($validationWrapper);
+                } else {
+                    _displayValidationErrorMessage($validationWrapper);
+                }
+            }
+
+            if (regexPattern) {
+                const regex = RegExp(regexPattern);
+                const $validationWrapper = $field.siblings('.spark-SparkForm--validationMessage');
+
+                // address field validation is based on ELID value
+                if(($field.attr('type') === 'address' && $field.siblings('input[name="ELID"]').length)
+                    || ($field.attr('type') !== 'address' && regex.test(fieldValue))) {
+                    _hideValidationErrorMessage($validationWrapper);
+                } else {
+                    _displayValidationErrorMessage($validationWrapper);
+                }
+            }
+        });
+    }
+
+    /**
+     * Displays a validation error message
+     * 
+     * @param $validationWrapper
+     * @private
+     */
+    function _displayValidationErrorMessage($validationWrapper) {
+        if (!$validationWrapper.hasClass('spark-SparkForm--validationMessage-show')) {
+            $validationWrapper.addClass('spark-SparkForm--validationMessage-show');
+        }
+    }
+
+    /**
+     * Hides a validation error message
+     * 
+     * @param $validationWrapper
+     * @private
+     */
+    function _hideValidationErrorMessage($validationWrapper) {
+        if ($validationWrapper.hasClass('spark-SparkForm--validationMessage-show')) {
+            $validationWrapper.removeClass('spark-SparkForm--validationMessage-show');
+        }
+    }
+
+    $(document).ready(function() {
+        _bindValidation();
+    });
+})(document, $);
+
+(function($){
+
+    /**
+     * Interim navigation handler. It will be replaced with proper implementation
+     * in the next sprint
+     *
+     * @param $button
+     * @private
+     */
+    function _initButton($button) {
+        if ($button.data('navigate-url')) {
+            const davigateUrl = $button.data('navigate-url');
+
+            if (davigateUrl.length > 0) {
+                $button.on('click', function() {
+                    window.location=davigateUrl;
+                });
+            }
+        }
+    }
+
+    $(document).ready(function() {
+        // this code will be replaced with proper implementation in the next
+        // sprint. current implementation only fits for one purpose
+        $('.spark-SparkForm--Button-button').each(function() {
+            _initButton($(this));
+        });
+    });
+
+})(jQuery);
+/**
+ * reCapture V2 implementation.
+ *
+ * Supports only one capture per page and will be replaced soon with V3
+ *
+ * @type {*|{}}
+ */
+
+// initialise global name space if empty
+window.tnz = window.tnz || {};
+
+window.tnz.reCaptureV3 = (function(document, $, undefined){
+    /**
+     * Success callback gets called when a user passes validation
+     */
+    function captchaSuccessCallback() {
+        if ($('#shareableForm #sharerDetails').find('input[type=checkbox]:checked').length > 3) {
+            $('.spark-SparkForm--Button-button[disabled]').prop('disabled', true);
+        } else {
+            $('.spark-SparkForm--Button-button[disabled]').prop('disabled', false);
+        }
+    }
+
+    /**
+     * Error callback gets called when a user fails validation. It also makes a submit button disabled
+     */
+    function captchaErrorCallback() {
+        $('.spark-SparkForm--Button-button').prop('disabled', true);
+    }
+
+    /**
+     * Depends on components settings enables reCaptcha JS
+     *
+     * @private
+     */
+    function _enableReCaptchaV3() {
+        if ($('.spark-SparkForm--Button-reCaptcha').length) {
+            // upload script only if a capture wrapper is rendered
+            $.getScript('https://www.google.com/recaptcha/api.js?onload=reCaptchaV3OnloadCallback&render=explicit');
+        }
+    }
+
+    $(document).ready(function() {
+        _enableReCaptchaV3();
+    });
+
+    return {
+        captchaSuccessCallback : captchaSuccessCallback,
+        captchaErrorCallback : captchaErrorCallback
+    };
+})(document, $);
+
+/**
+ * Needs to be exposed to global name space
+ */
+function reCaptchaV3OnloadCallback() {
+    // grecaptcha is always registered otherwise this method will never be called
+    grecaptcha.render('spark-SparkForm--reCaptcha', {
+        'sitekey' : $('.spark-SparkForm--Button-reCaptcha').data('sitekey'),
+        'callback' : window.tnz.reCaptureV3.captchaSuccessCallback,
+        'expired-callback' : window.tnz.reCaptureV3.captchaErrorCallback,
+        'error-callback' : window.tnz.reCaptureV3.captchaErrorCallback
+    });
+}

@@ -1,0 +1,260 @@
+/*!
+ * GWC v1.1
+ *
+ * Copyright (c) 2017 Spark NZ
+ *
+ * Author: Edward Boni
+ *
+ * Date: 2017-04-01
+ */
+
+'use strict';
+
+var gwc_IP = 'Not Available';
+var gwc = gwc || {};
+
+var gwc = (function() {
+    var self = {
+		_config: {},
+		_configURL: gwc_environment.gmsName + '/1/service/widget-config?',
+		_connectionID: '',
+		_delaySlider: '',
+		_displayText: 'We are busy updating chat for you and will be back shortly.',
+		_hasBot: true,
+		_hasBotHealthCheck: false,
+		_hasConfigAPI: false,
+		_hasChatStatus: false,
+		_hasEnableChannelSelector: false,
+		_hasEnableSlider: false,
+		_queue: '',
+		_serviceName: 'hmb_widget',
+		_userAgent: navigator.userAgent,
+        set botHealthCheck(healthCheck) {
+            self._hasBotHealthCheck = healthCheck;
+        },
+        get botHealthCheck() {
+            return self._hasBotHealthCheck;
+        },
+        set connectionID(id) {
+            self._connectionID = id;
+        },
+        get connectionID() {
+            return self._connectionID;
+        },
+        set displayText(text) {
+			self._displayText = text;
+        },
+        get displayText() {
+            return self._displayText;
+        },
+        get serviceName() {
+            return self._serviceName;
+        },
+        get userAgent() {
+            return self._userAgent;
+        },
+        get bot() {
+            return self._hasBot;
+        },
+        get chatStatus() {
+            return self._hasChatStatus;
+        },
+        get configAPI() {
+            return self._hasConfigAPI;
+        },
+        get delaySlider() {
+            return self._delaySlider;
+        },
+        get enableChannelSelector() {
+            return self._hasEnableChannelSelector;
+        },
+        get enableSlider() {
+            return self._hasEnableSlider;
+        },
+        get queue() {
+            return self._queue;
+        },
+        setBotHealthCheck: function(healthCheck) {
+            self.botHealthCheck = healthCheck;
+        },
+		getBotHealthCheck: function() {
+			return self.botHealthCheck;
+		},
+        setConnectionID: function(id) {
+            self.connectionID = id;
+        },
+		getConnectionID: function() {
+			return self.connectionID;
+		},
+		setDisplayText: function(text) {
+			self.displayText = text;
+		},
+		getDisplayText: function() {
+			return self.displayText;
+		},
+		getServiceName: function() {
+			return self.serviceName;
+		},
+		getUserAgent: function() {
+			return self.userAgent;
+		},
+		getBot: function() {
+			return self.bot;
+		},
+		getChatStatus: function() {
+			return self.chatStatus;
+		},
+		getConfigAPI: function() {
+			return self.configAPI;
+		},
+		getDelaySlider: function() {
+			return self.delaySlider;
+		},
+		getEnableChannelSelector: function() {
+			return self.enableChannelSelector;
+		},
+		getEnableSlider: function() {
+			return self.enableSlider;
+		},
+		getQueue: function() {
+			return self.queue;
+		},
+		getParameter: function(tag) {
+			var query = window.location.search.substring(1);
+			var list = query.split('&');
+			var i;
+			var l = list.length;
+
+			for (i = 0; i < l; i++) {
+				var pair = list[i].split('=');
+
+				if (pair[0] == tag) {
+					if (pair[1] != undefined) {
+						return pair[1] != '' ? pair[1] : '';
+					}
+				}
+			}
+
+			return '';
+		},
+		getTag: function() {
+			var tag = '';
+
+			if (digitalData.page.pageInfo.pageID) {
+				var digitalDataPageID = digitalData.page.pageInfo.pageID;
+
+				(digitalDataPageID.substr(digitalDataPageID.length - 1, digitalDataPageID.length) == "/") ? digitalDataPageID = digitalDataPageID.substr(0, digitalDataPageID.length - 1) : digitalDataPageID;
+
+				if (chatWidgetTargetPages[digitalDataPageID]) {
+					tag = chatWidgetTargetPages[digitalDataPageID];
+				}
+				else if (chatWidgetTargetPages[digitalDataPageID + "/"]) {
+					tag = chatWidgetTargetPages[digitalDataPageID + "/"];
+				}
+			}
+
+			if (tag == 'SparkApp' && self.getParameter('journey') != '' && self.getParameter('serviceID') != '') {
+				tag = 'SparkAppBroadbandDiagnostic';
+			}
+
+			if (location.href.indexOf('nz/business') > -1) {
+				tag = 'BusinessNoVA';
+			}
+
+			return tag != '' ? tag : gwc_environment.defaultPageTag;
+		},
+		createConfigURL: function(tag, botHealthCheck) {
+			var url = self._configURL + 'udata.param1=' + tag + '&udata.almehealthcheck=' + botHealthCheck;
+			return url;
+		},
+		setConfigURL: function() {
+			var url = self.createConfigURL(self.getTag(), self.getBotHealthCheck());
+			return url;
+		},
+		getConfig: function() {
+			var xhr = new XMLHttpRequest();
+			var url = self.setConfigURL();
+			xhr.open('GET', url, false);
+			xhr.onload = function() {
+				if (xhr.status === 200) {
+					gwc_environment.debug && console.log('GET', url, xhr.status, xhr.responseText);
+					self._config = JSON.parse(xhr.responseText);
+					self._hasConfigAPI = true;
+					self._hasEnableSlider = self._config.WidgetSlider;
+					self._delaySlider = self._config.SliderDelay;
+					self._hasBot = self._config.Bot;
+					self._connectionID = self._config.check_connid;
+					self._hasChatStatus = self._config.ChatStatus;
+					self._displayText = self._config.DisplayText;
+					self._queue = self._config.Vq;
+					self._hasEnableChannelSelector = self._config.ChannelSelector;
+				}
+				else {
+					gwc_environment.debug && console.log('xhr.status', xhr.status);
+				}
+			};
+			xhr.send();
+		},
+		getCommand: function() {
+			var command = 'ChatDeflector.open';
+
+			if (self._hasChatStatus == 'closed') {
+				command = 'ChatStatus.open';
+			}
+			else if (self._hasChatStatus == 'open' && self._hasEnableChannelSelector == 'true') {
+				command = 'ChannelSelector.open';
+			}
+
+			return CXBus.command(command);
+		},
+		getChatBot: function() {
+			window._genesys.widgets.extend.UI.core.getChatBot();
+
+			return false;
+		},
+		getChatLive: function() {
+			window._genesys.widgets.extend.UI.core.getChatLive();
+			CXBus.command('UI.clicked');
+
+			return false;
+		}
+    };
+
+    return {
+		setBotHealthCheck: self.setBotHealthCheck,
+		getBotHealthCheck: self.getBotHealthCheck,
+		getConnectionID: self.getConnectionID,
+		getServiceName: self.getServiceName,
+		getUserAgent: self.getUserAgent,
+		getChatStatus: self.getChatStatus,
+		getBot: self.getBot,
+		getConfigAPI: self.getConfigAPI,
+		getDelaySlider: self.getDelaySlider,
+		getEnableSlider: self.getEnableSlider,
+		setDisplayText: self.setDisplayText,		
+		getDisplayText: self.getDisplayText,
+		getQueue: self.getQueue,
+		getEnableChannelSelector: self.getEnableChannelSelector,
+		getParameter: self.getParameter,
+		getTag: self.getTag,
+		setConfigURL: self.setConfigURL,
+		getConfig: self.getConfig,
+		getCommand: self.getCommand,
+		getChatBot: self.getChatBot,
+		getChatLive: self.getChatLive
+    }
+})();
+
+try {
+	gwc.getConfig();
+}
+catch(e) {
+	gwc_environment.debug && console.log('gwc.getConfig', e);
+}
+
+/*!
+ * Deprecated
+ */
+function gwc_GetCommand() {
+	gwc.getCommand();
+}

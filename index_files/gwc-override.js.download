@@ -1,0 +1,9 @@
+/*
+if (gwc.getEnableSlider() == 'true') {
+	_genesys.widgets.main.plugins = ['cx-webchat-service','cx-webchat','cx-call-us','cx-channel-selector','cx-console','cx-stats-service','cx-sidebar']
+}
+*/
+if (location.protocol != 'https:') {
+	window._genesys.widgets.extend.ChatStatus.title = 'Chat';
+	gwc.setDisplayText('You are seeing this message in error. Please <span id="gwc-secure-chat"><a href="https:'+gwc_environment.serverName+'/help/?type=chat">click here</a></span> to access our chat service.');
+}

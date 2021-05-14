@@ -1,0 +1,3000 @@
+if (!window._genesys.widgets.extensions) {
+	window._genesys.widgets.extensions = {};
+}
+
+window._genesys.widgets.extensions['Analytics'] = function($, CXBus, Common) {
+	var Analytics = CXBus.registerPlugin('Analytics');
+
+	if (Analytics) {
+		Analytics.registerEvents(['closed', 'opened', 'ready']);
+		Analytics.republish('ready');
+
+		window._genesys.widgets.extend.Analytics.core = {
+			setSessionChatID: function() {
+				var event = {};
+				event.detail = {};
+				event.detail.eventName = 'getStateSessionChatID';
+				event.detail.attributes = {};
+				event.detail.attributes.chatID = window._genesys.widgets.common.getCookie(window._genesys.widgets.extend.State.session) != null ? window._genesys.widgets.common.getCookie(window._genesys.widgets.extend.State.session) : '';
+
+				gwc_environment.debug && console.log('digitalData', digitalData ? true : false, event);
+				digitalData && digitalData.sendCustomEvent('getStateSessionChatID', event);
+			}
+		};
+
+		Analytics.registerCommand('open', function(e) {
+			e.deferred.resolve();
+			Analytics.republish('opened');
+		});
+
+		Analytics.registerCommand('close', function(e) {
+			e.deferred.resolve();
+			Analytics.republish('closed');
+		});
+
+		Analytics.ready();
+	}
+};
+
+
+window._genesys.widgets.extensions['Alert'] = function($, CXBus, Common) {
+	var Alert = CXBus.registerPlugin('Alert');
+
+	if (Alert) {
+		Alert.registerEvents(['ready']);
+		Alert.republish('ready');
+
+		window._genesys.widgets.extend.Alert.core = {
+			hasWindowFocus: true,
+			stopTitleAlertID: 0,
+			title: document.title ? document.title : '',
+			changeTitle: function() {
+				var title = document.title;
+				document.title = (title == this.title) ? (window._genesys.widgets.extend.Alert.newMessageAlert + ' - ' + this.title) : this.title;
+			},
+			playMessageAlert: function() {
+				try {
+					var audio = new Audio(window._genesys.widgets.extend.Alert.homeDir+window._genesys.widgets.extend.Alert.newMessageFile);
+					audio.play();
+				}
+				catch(e) {
+					return e;
+				}
+			},
+			resetTitle: function() {
+				document.title = this.title;
+			},
+			startTitleAlert: function() {
+				var _this = this;
+				this.titleAlertDelay(function() {
+				_this.startTitleAlert();
+				_this.changeTitle();
+				}, window._genesys.widgets.extend.Alert.titleDelay);
+			},
+			stopTitleAlert: function() {
+				clearTimeout(this.stopTitleAlertID);
+				this.resetTitle();
+			},
+			titleAlertDelay: (function() {
+				var timer = 0;
+				return function(callback, ms) {
+					clearTimeout(timer);
+					timer = setTimeout(callback, ms);
+
+					this.stopTitleAlertID = timer;
+				};
+			})()
+		};
+
+		Alert.subscribe('WebChatService.messageReceived', function(e) {
+			if (e.data.messages) {
+				if (e.data.messages[0].from.type == 'Agent' && e.data.messages[0].type == 'Message' && !window._genesys.widgets.extend.Alert.core.hasWindowFocus) {
+					window._genesys.widgets.extend.Alert.core.playMessageAlert();
+					window._genesys.widgets.extend.Alert.core.startTitleAlert();
+				}
+			}
+		});
+
+		$(function() {
+			$(window).focus(function() {
+				window._genesys.widgets.extend.Alert.core.hasWindowFocus = true;
+				window._genesys.widgets.extend.Alert.core.stopTitleAlert();
+			})
+			.blur(function() {
+				window._genesys.widgets.extend.Alert.core.hasWindowFocus = false;
+			})
+		});
+		
+		Alert.ready();
+	}
+};
+
+
+window._genesys.widgets.extensions['Avatar'] = function($, CXBus, Common) {
+	var Avatar = CXBus.registerPlugin('Avatar');
+
+	if (Avatar) {
+		Avatar.registerEvents(['ready']);
+		Avatar.republish('ready');
+
+		window._genesys.widgets.extend.Avatar.core = {
+			agentName: 'default',
+			getAvatar: function(name) {
+				var imageName = 'agent-' + this.agentName + '.' + window._genesys.widgets.extend.Avatar.staticFormat;
+
+				if (window._genesys.widgets.extend.Avatar.default == '') {
+					var botIndex = window._genesys.widgets.extend.Bot.agentList.indexOf(name);
+					var agentIndex = window._genesys.widgets.extend.Avatar.agentList.indexOf(name);
+
+					if (botIndex > -1) {
+						this.agentName = name.replace(/ /g, '-');
+						imageName = 'agent-' + this.agentName + '.' + window._genesys.widgets.extend.Bot.formatList[botIndex];
+					}
+					else if (agentIndex > -1) {
+						this.agentName = name.replace(/ /g, '-');
+						imageName = 'agent-' + this.agentName + '.' + window._genesys.widgets.extend.Avatar.staticFormat;
+					}
+					else {
+						imageName = 'agent-' + window._genesys.widgets.extend.Avatar.agentNameDefault + '.' + window._genesys.widgets.extend.Avatar.staticFormat;
+					}
+				}
+				else {
+					imageName = 'agent-' + window._genesys.widgets.extend.Avatar.default + '.' + window._genesys.widgets.extend.Avatar.staticFormat;
+				}
+
+				return window._genesys.widgets.extend.Avatar.homeDir + imageName;
+			},
+			setAvatar: function() {
+				$('.cx-agent, .cx-agent-typing').each(function(index) {
+					var agentName = $(this).find('p.cx-bubble span.cx-name').text();
+					$(this).find('.cx-avatar-wrapper .cx-avatar').html('<img src="'+window._genesys.widgets.extend.Avatar.core.getAvatar(agentName.toLowerCase())+'" class="circle">').removeClass('preset-blue');
+				});
+			}
+		};
+
+		Avatar.subscribe('WebChat.opened', function(e) {
+			window._genesys.widgets.extend.Avatar.core.setAvatar();
+		});
+
+		Avatar.subscribe('WebChatService.messageReceived', function(e) {
+			window._genesys.widgets.extend.Avatar.core.setAvatar();
+		});
+
+		Avatar.subscribe('WebChatService.agentTypingStarted', function(e) {
+			window._genesys.widgets.extend.Avatar.core.setAvatar();
+		});
+
+		Avatar.ready();
+	}
+};
+
+
+window._genesys.widgets.extensions['Bot'] = function($, CXBus, Common) {
+	var Bot = CXBus.registerPlugin('Bot');
+
+	if (Bot) {
+		Bot.registerEvents(['closed', 'opened', 'ready']);
+		Bot.republish('ready');
+
+		window._genesys.widgets.extend.Bot.core = {
+			name: ''
+		};
+
+		Bot.registerCommand('open', function(e) {
+			if (window._genesys.widgets.extend.MySpark.core.isAuthenticated) {
+				Bot.command('MySpark.open');
+			}
+			else if (window._genesys.widgets.extend.State.core.hasActiveBot) {
+				Bot.command('WebChat.open', {
+					form: {
+						autoSubmit: true,
+						firstname: window._genesys.widgets.extend.Bot.clientFirstName,
+						lastname: window._genesys.widgets.extend.Bot.clientLastName,
+						email: '',
+						subject: ''
+					},
+					formJSON: {
+						wrapper: '<table></table>',
+						inputs: [
+							{
+								id: 'cx_webchat_form_firstname',
+								name: 'firstname',
+								maxlength: '100',
+								placeholder: '@i18n:webchat.ChatFormPlaceholderFirstName',
+								label: '@i18n:webchat.ChatFormFirstName'
+							},
+							{
+								id: 'cx_webchat_form_lastname',
+								name: 'lastname',
+								maxlength: '100',
+								placeholder: '@i18n:webchat.ChatFormPlaceholderLastName',
+								label: '@i18n:webchat.ChatFormLastName'
+							},
+							{
+								id: 'cx_webchat_form_email',
+								name: 'email',
+								maxlength: '100',
+								placeholder: '@i18n:webchat.ChatFormPlaceholderEmail',
+								label: '@i18n:webchat.ChatFormEmail'
+							}
+						]
+					}
+				}).done(function(e) {
+					window._genesys.widgets.extend.UI.core.setChatFormHide();
+				}).fail(function(e) {
+					//
+				});
+			}
+
+			if (window._genesys.widgets.extend.State.core.hasActiveSession && window._genesys.widgets.extend.State.core.hasActiveBot) {
+				window._genesys.widgets.extend.UI.core.setChatFormShow();
+			}
+
+			e.deferred.resolve();
+			Bot.republish('opened');
+		});
+
+		Bot.registerCommand('close', function(e) {
+			e.deferred.resolve();
+			Bot.republish('closed');
+		});
+
+		Bot.subscribe('WebChatService.started', function(e) {
+			var data = {};
+
+			if (window._genesys.widgets.extend.State.core.hasActiveBot) {
+				data = {
+					Bot: true
+				}
+
+				window._genesys.widgets.extend.State.core.overrideIsBotChatBot = false;
+
+				window._genesys.widgets.extend.UI.core.setChatFormShow();
+				window._genesys.widgets.extend.UI.core.setChatFormInputField();
+
+				gwc_environment.debug && console.log('UserData', data);
+				Bot.command('WebChatService.updateUserData', data);
+			}
+
+			window._genesys.widgets.extend.UI.core.setChatFormInputScroll();
+		});
+
+		Bot.subscribe('WebChatService.messageReceived', function(e) {
+			if (e.data.messages) {
+				if (window._genesys.widgets.extend.State.core.hasActiveBot) {
+					if (window._genesys.widgets.extend.Bot.agentList.indexOf(e.data.messages[0].from.name.toLowerCase()) > -1) {
+						window._genesys.widgets.extend.Bot.core.name = e.data.messages[0].from.name;
+					}
+				}
+			}
+		});
+
+		Bot.ready();
+	}
+};
+
+
+window._genesys.widgets.extensions['ChatDeflector'] = function($, CXBus, Common) {
+	var ChatDeflector = CXBus.registerPlugin('ChatDeflector');
+
+	if (ChatDeflector) {
+		ChatDeflector.registerEvents(['closed', 'opened', 'ready']);
+		ChatDeflector.republish('ready');
+
+		window._genesys.widgets.extend.ChatDeflector.core = {
+			isWebChatFormOpen: false,
+			regExEmail: /(.+)@(.+){2,}\.(.+){2,}/,
+			stopTypeAlertID: 0,
+			delay: (function() {
+				var timer = 0;
+				return function(callback, ms) {
+					clearTimeout(timer);
+					timer = setTimeout(callback, ms);
+				};
+			})(),
+			typeDelay: (function() {
+				var timer = 0;
+				return function(callback, ms) {
+					clearTimeout(timer);
+					timer = setTimeout(callback, ms);
+
+					this.stopTypeAlertID = timer;
+				};
+			})(),
+			stopTypeAlert: function() {
+				clearTimeout(this.stopTypeAlertID);
+			},
+			initForm: function() {
+				var _this = this;
+				var isEmpty = true;
+
+				var FormView = {
+					type: 'generic',
+					title: '<h1>'+window._genesys.widgets.extend.ChatDeflector.title+'</h1><hr class="underline purple-bg">',
+					body: '<p id="wait-time">'+window._genesys.widgets.extend.ChatStatus.ewtDescription+' <strong>'+window._genesys.widgets.extend.Stats.core.getEWTDisplay(window._genesys.widgets.extend.Stats.core.getEWTInterval())+'</strong></p><textarea class="form-control" name="chat-deflection-question" id="chat-deflection-question" column="40" rows="2" minlength="10" placeholder="Type your question" required></textarea><br><p id="chat-deflection-header" class="hidden">'+window._genesys.widgets.extend.ChatDeflector.answerTitle+'</p><ul id="chat-deflection-list" class="hidden"><a href="#" id="result" class="hidden"><li></li></a></ul><p id="chat-deflection-continue-header" class="hidden">'+window._genesys.widgets.extend.ChatDeflector.emailTitle+'</p><input type="text" data-message-type="placeholder" data-message="ChatDeflectorFormEmail" name="email" minlength="1" maxlength="100" id="chat-deflection-email" class="form-control hidden" placeholder="Your email address"><br><p class="text-center"><button tabindex="0" data-message="ChatDeflectorFormSubmit" class="submit btn btn-primary i18n hidden" id="chat">Continue</button></p><p class="keyboard-placeholder"></p>',
+					icon: '',
+					controls: 'close',
+					buttons: {
+
+					}
+				};
+
+				ChatDeflector.command('Toaster.open', FormView).done(function(e) {
+					if (window._genesys.widgets.extend.MySpark.core.isAuthenticated) {
+						$('#chat-deflection-email').val(window._genesys.widgets.extend.MySpark.core.email);
+					}
+
+					$('#chat-deflection-question').focus();
+					$(e.html).find('.cx-body').addClass('chat-deflection-body');
+					$(e.html).find('.cx-footer').addClass('hidden');	
+					$(e.html).find('#chat-deflection-question').keyup(function() {
+						var query = $(this).val();
+
+						if (query.length >= window._genesys.widgets.extend.ChatDeflector.minQueryLength) {
+							$(this).removeClass('error');
+							_this.stopTypeAlert();
+							_this.typeDelay(function() {
+								$('#chat-deflection-list').html('<a href="#" id="chat-deflection" class="hidden"><li></li></a>');
+								$.ajax({
+									url: window._genesys.widgets.extend.ChatDeflector.api+ '&q='+query,
+									dataType: 'json',
+									type: 'GET',
+									success: function(data) {
+										if (data.resultset.results) {
+											var findObjValue = function(obj, target, value) {
+												var returnResult = '';
+												obj.filter(function(item) {     
+													if (item[target] == value) {
+														returnResult = item.data[0].value.str;
+													}
+												});
+												return returnResult;
+											}
+
+											var i;
+											var maxResults = data.resultset.results.length < window._genesys.widgets.extend.ChatDeflector.maxResult ? data.resultset.results.length : window._genesys.widgets.extend.ChatDeflector.maxResult;
+
+											for (i = 0; i < maxResults; i++) {
+												var title = findObjValue(data.resultset.results[i].properties, 'id', 'title');
+												var url = findObjValue(data.resultset.results[i].properties, 'id', 'url');
+												if (url != '' && url != null) {
+													$("#chat-deflection").before('<a href="'+url+'"><li>'+title+'</li></a>');
+												}
+											}
+											_this.isEmpty = false;
+										}
+										else {
+											_this.isEmpty = true;
+										}
+									},
+									error: function() {
+										_this.isEmpty = true;
+									},
+									complete: function() {
+										if (!_this.isEmpty) {
+											$('#chat-deflection-header, #chat-deflection-continue-header, #chat-deflection-email, #chat').removeClass('hidden');
+											$('#chat-deflection-list').removeClass('hidden');
+										}
+										else {
+											$('#chat-deflection-header, #chat-deflection-list').addClass('hidden');
+											$('#chat-deflection-continue-header, #chat-deflection-email, #chat').removeClass('hidden');
+										}
+									}
+								});
+							}, window._genesys.widgets.extend.ChatDeflector.typeDelay);
+						}
+						else {
+							$(this).addClass('error').focus();
+							_this.delay(function() {
+								$('#chat-deflection-header, #chat-deflection-email-header, #chat-deflection-continue-header, #chat-deflection-email, #chat').addClass('hidden');
+								$('#chat-deflection-list').html('<a href="#" id="chat-deflection" class="hidden"><li></li></a>').addClass('hidden');
+							}, window._genesys.widgets.extend.ChatDeflector.delay);
+						}
+					});
+
+					$(e.html).find('#chat-deflection-email').keyup(function() {
+						var email = $(e.html).find('#chat-deflection-email').val();
+
+						if (window._genesys.widgets.extend.ChatDeflector.core.regExEmail.test(email)) {
+							$(this).removeClass('error');
+						}
+						else {
+							$(this).addClass('error').focus();
+						}
+					});
+
+					$(e.html).find('#chat').click(function() {
+						var email = $(e.html).find('#chat-deflection-email').val();
+						var question = $(e.html).find('#chat-deflection-question').val();
+
+						if (email != "" && window._genesys.widgets.extend.ChatDeflector.core.regExEmail.test(email)) {
+							ChatDeflector.command('Toaster.close').done(function(e) {
+								ChatDeflector.command('ChatDeflector.close');
+								ChatDeflector.command('WebChat.open').done(function(e) {
+									$('#cx_webchat_form_subject').val(question).removeAttr('maxlength');
+									$('#cx_webchat_form_email').val(email);
+									$('<hr class="underline purple-bg">').appendTo('.cx-title');
+								});
+							});
+						}
+						else {
+							$('#chat-deflection-email').addClass('error').focus();
+						}
+					});
+
+					$(e.html).find('button.cx-button-close.icon-close').click(function() {
+						ChatDeflector.command('ChatDeflector.close');
+					});
+					$(e.html).find('#chat-deflection-email').focusin(function() {
+						$('.cx-body').scrollTop($('.cx-body')[0].scrollHeight);
+					});
+
+					$(e.html).find('#chat-deflection-email').focusout(function() {
+						$('.cx-body').scrollTop(0);
+					});
+
+					window._genesys.widgets.extend.UI.core.isWebChatFormOpen = true;
+					ChatDeflector.republish('opened');
+				});
+			}
+		};
+		
+		/**
+			Trigger.
+		*/
+		ChatDeflector.registerCommand('open', function(e) {
+			gwc.setBotHealthCheck(true);
+
+			try {
+				gwc.getConfig();
+			}
+			catch(e) {
+				gwc_environment.debug && console.log('gwc.getConfig', e);
+			}
+
+			window._genesys.widgets.extend.Configuration.core.setConfigurationConfigUpdate(); // Update Configuration
+			window._genesys.widgets.extend.Help.core.checkInit();
+
+			if (!window._genesys.widgets.extend.UI.core.isWebChatFormOpen) {
+				if (window._genesys.widgets.extend.Configuration.core.enableBot || window._genesys.widgets.extend.State.core.overrideIsBotChatBot) {
+					window._genesys.widgets.extend.State.core.setBotState();
+					ChatDeflector.command('Bot.open');
+				}
+				else {
+					if (window._genesys.widgets.extend.MySpark.core.isAuthenticated) {
+						ChatDeflector.command('MySpark.open');
+					}
+					else if (window._genesys.widgets.extend.Help.core.isInit) {
+						ChatDeflector.command('Help.open');
+					}			
+					else {
+						if (window._genesys.widgets.extend.Configuration.core.configAPI) {
+							if (!window._genesys.widgets.extend.Configuration.core.status) {
+								ChatDeflector.command('ChatStatus.open');
+							}
+							else {
+								ChatDeflector.command('WebChat.open');
+							}
+						}
+						else {
+							ChatDeflector.command('ChatStatus.open');
+						}
+					}
+				}
+			}
+			e.deferred.resolve();
+			ChatDeflector.republish('opened');
+		});
+
+		ChatDeflector.registerCommand('close', function(e) {
+			window._genesys.widgets.extend.UI.core.isWebChatFormOpen = false;
+			e.deferred.resolve();
+			ChatDeflector.republish('closed');
+		});
+
+		ChatDeflector.subscribe('Toaster.closed', function(e) {
+			ChatDeflector.command('ChatDeflector.close');
+		});
+
+		ChatDeflector.subscribe('WebChat.opened', function(e) {
+			window._genesys.widgets.extend.UI.core.isWebChatFormOpen = true;
+		});
+
+		ChatDeflector.subscribe('WebChat.closed', function(e) {
+			window._genesys.widgets.extend.UI.core.isWebChatFormOpen = false;
+		});
+
+		ChatDeflector.ready();
+	}
+};
+
+
+window._genesys.widgets.extensions['ChatStatus'] = function($, CXBus, Common) {
+	var ChatStatus = CXBus.registerPlugin('ChatStatus');
+
+	if (ChatStatus) {
+		ChatStatus.registerEvents(['closed', 'opened', 'ready']);
+		ChatStatus.republish('ready');
+
+		window._genesys.widgets.extend.ChatStatus.core = {
+			initModal: function() {
+				var FormView = Common.Generate.Container({
+						type: 'overlay',
+						title: '<h1>'+window._genesys.widgets.extend.ChatStatus.title+'</h1><hr class="underline purple-bg">',
+						body: '<div class="cx-channel-selector"><div class="message"></div><div class="cx-wrapper"><div class="cx-channels"><p>'+window._genesys.widgets.extend.Configuration.core.displayText+'</p></div></div></div>',
+						icon: '',
+						controls: 'close',
+						buttons: {}
+					});
+
+				var ModalView = {
+					html: FormView,
+					immutable: false
+				};
+
+				ChatStatus.command('Overlay.open', ModalView).done(function(e) {
+					if (window._genesys.widgets.extend.UI.core.isMobile) {
+						$(document).find('.cx-widget.ow-modal').addClass('cx-channel-selector-overlay-mobile');
+						$(document).find('.cx-common-container').addClass('cx-channel-container-mobile');
+						$(e.html).find('.cx-channel-selector .cx-wrapper').addClass('cx-wrapper-mobile');
+						window._genesys.widgets.extend.UI.core.setChannelSelectorOrientation();
+					}
+					else {
+						$(e.html).find('.cx-channel-selector .cx-wrapper').addClass('cx-channel-wrapper');
+					}
+
+					$(e.html).find('div').removeClass('cx-buttons-binary');
+					$(e.html).find('button.btn.btn-default').remove();
+					$(e.html).find('.cx-button-close').click(function() {
+						ChatStatus.command('ChatStatus.close');
+					});
+				});
+			}
+		};
+
+		ChatStatus.registerCommand('open', function(e) {
+			window._genesys.widgets.extend.ChatStatus.core.initModal();
+			e.deferred.resolve();
+			ChatStatus.republish('opened');
+		});
+
+		ChatStatus.registerCommand('close', function(e) {
+			ChatStatus.command('Overlay.close');
+			ChatStatus.republish('closed');
+		});
+
+		ChatStatus.ready();
+	}
+};
+
+
+window._genesys.widgets.extensions['Configuration'] = function($, CXBus, Common) {
+	var Configuration = CXBus.registerPlugin('Configuration');
+
+	if (Configuration) {
+		Configuration.registerEvents(['ready', 'update']);
+		Configuration.republish('ready');
+
+		window._genesys.widgets.extend.Configuration.core = {
+			configAPI: false,
+			queue: window._genesys.widgets.channelselector.channels[0].ewt.queue,
+			delaySlider: 0,
+			displayText: '',
+			enableBot: false,
+			enableChannelSelector: false,
+			enableSlider: false,
+			status: false,
+			hideChannelSelector: function() {
+				$(document).find('.cx-widget.ow-modal').addClass('cx-hidden');
+			},
+			setChannelSelectorConfig: function() {
+				var config = {
+						channels: [
+							{
+								clickCommand: window._genesys.widgets.channelselector.channels[0].clickCommand,
+								displayName: window._genesys.widgets.channelselector.channels[0].displayName,
+								enable: this.status,
+								ewt: {
+									availabilityThresholdMax: window._genesys.widgets.channelselector.channels[0].ewt.availabilityThresholdMax,
+									availabilityThresholdMin: window._genesys.widgets.channelselector.channels[0].ewt.availabilityThresholdMin,
+									display: window._genesys.widgets.channelselector.channels[0].ewt.display,
+									hideChannelWhenThresholdMax: window._genesys.widgets.channelselector.channels[0].ewt.hideChannelWhenThresholdMax,
+									queue: this.queue
+								},
+								i10n: window._genesys.widgets.channelselector.channels[0].i10n,
+								icon: window._genesys.widgets.channelselector.channels[0].icon,
+								html: window._genesys.widgets.channelselector.channels[0].html,
+								readyEvent: window._genesys.widgets.channelselector.channels[0].readyEvent
+							},
+							{
+								clickCommand: window._genesys.widgets.channelselector.channels[1].clickCommand,
+								displayName: window._genesys.widgets.channelselector.channels[1].displayName,
+								enable: window._genesys.widgets.channelselector.channels[1].enable,
+								icon: window._genesys.widgets.channelselector.channels[1].icon,
+								html: window._genesys.widgets.channelselector.channels[1].html
+							}
+						],
+						ewtRefreshInterval: window._genesys.widgets.channelselector.ewtRefreshInterval
+				}
+
+				return config;
+			},
+			setConfigurationConfigUpdate: function() {
+				if (gwc.getConfigAPI()) {
+					window._genesys.widgets.extend.Configuration.core.configAPI = true;
+				}
+				if (gwc.getEnableSlider() == 'true') {
+					window._genesys.widgets.extend.Configuration.core.enableSlider = true;
+				}
+				if (gwc.getDelaySlider() != 0) {
+					window._genesys.widgets.extend.Configuration.core.delaySlider = gwc.getDelaySlider();
+				}
+				if (gwc.getBot() == 'false') {
+					window._genesys.widgets.extend.Configuration.core.enableBot = false;
+				}
+				if (gwc.getBot() == 'true') {
+					window._genesys.widgets.extend.Configuration.core.enableBot = true;
+				}
+				if (gwc.getChatStatus() == 'closed') {
+					window._genesys.widgets.extend.Configuration.core.status = false;
+				}				
+				if (gwc.getChatStatus() == 'open') {
+					window._genesys.widgets.extend.Configuration.core.status = true;
+				}
+				if (gwc.getDisplayText() != '') {
+					window._genesys.widgets.extend.Configuration.core.displayText = gwc.getDisplayText();
+				}
+				if (gwc.getQueue() != '') {
+					window._genesys.widgets.extend.Configuration.core.queue = gwc.getQueue();
+				}
+				if (gwc.getEnableChannelSelector() == 'true') {
+					window._genesys.widgets.extend.Configuration.core.enableChannelSelector = true;
+				}
+			}
+		};
+
+		Configuration.subscribe('Configuration.ready', function(e) {
+			window._genesys.widgets.extend.Configuration.core.setConfigurationConfigUpdate(); // Update Configuration
+		});
+
+		Configuration.subscribe('ChannelSelector.ready', function(e) {
+			if (window._genesys.widgets.extend.Configuration.core.configAPI) {
+				Configuration.command('ChannelSelector.configure', window._genesys.widgets.extend.Configuration.core.setChannelSelectorConfig());
+			}
+		});
+
+		Configuration.subscribe('ChannelSelector.opened', function(e) {
+			if (!window._genesys.widgets.extend.Configuration.core.status || !window._genesys.widgets.extend.Configuration.core.enableChannelSelector) {
+				window._genesys.widgets.extend.Configuration.core.hideChannelSelector();
+			}
+
+			gwc.setBotHealthCheck(true);
+
+			try {
+				gwc.getConfig();
+			}
+			catch(e) {
+				gwc_environment.debug && console.log('gwc.getConfig', e);
+			}
+
+			window._genesys.widgets.extend.Configuration.core.setConfigurationConfigUpdate(); // Update Configuration
+
+			/**
+				Trigger.
+			*/
+			if (window._genesys.widgets.extend.Configuration.core.configAPI) {
+				if (!window._genesys.widgets.extend.Configuration.core.status) {
+					Configuration.command('ChatStatus.open');
+				}
+				else {
+					if (!window._genesys.widgets.extend.Configuration.core.enableChannelSelector) {
+						Configuration.command('ChannelSelector.close');
+						Configuration.command('ChatDeflector.open');
+					}
+				}
+			}
+			else {
+				Configuration.command('ChatStatus.open');
+			}
+		});
+
+		Configuration.registerCommand('update', function(e) {
+			if (gwc.getConfigAPI()) {
+				window._genesys.widgets.extend.Configuration.core.configAPI = true;
+			}
+			if (gwc.getEnableSlider() == 'true') {
+				window._genesys.widgets.extend.Configuration.core.enableSlider = true;
+			}
+			if (gwc.getDelaySlider() != 0) {
+				window._genesys.widgets.extend.Configuration.core.delaySlider = gwc.getDelaySlider();
+			}
+			if (gwc.getBot() == 'false') {
+				window._genesys.widgets.extend.Configuration.core.enableBot = false;
+			}			
+			if (gwc.getBot() == 'true') {
+				window._genesys.widgets.extend.Configuration.core.enableBot = true;
+			}
+			if (gwc.getChatStatus() == 'closed') {
+				window._genesys.widgets.extend.Configuration.core.status = false;
+			}			
+			if (gwc.getChatStatus() == 'open') {
+				window._genesys.widgets.extend.Configuration.core.status = true;
+			}
+			if (gwc.getDisplayText() != '') {
+				window._genesys.widgets.extend.Configuration.core.displayText = gwc.getDisplayText();
+			}
+			if (gwc.getQueue() != '') {
+				window._genesys.widgets.extend.Configuration.core.queue = gwc.getQueue();
+			}
+			if (gwc.getEnableChannelSelector() == 'true') {
+				window._genesys.widgets.extend.Configuration.core.enableChannelSelector = true;
+			}
+		});
+
+		Configuration.ready();
+	}
+};
+
+
+window._genesys.widgets.extensions['Floater'] = function($, CXBus, Common) {
+	var Floater = CXBus.registerPlugin('Floater');
+	var	method = {
+		hideWebChatMinimise: function() {
+			$('.cx-widget.cx-minimized').addClass('cx-hidden');
+		},
+		hide: function() {
+			$('.cx-floater').addClass('cx-hidden');
+		},		
+		open: function() {
+			if (gwc.getEnableSlider() == 'true') {
+				$('body').append('<div class="cx-floater"><div class="cx-floater-icon"><img src="' + window._genesys.widgets.extend.Floater.icon + '"' + ' title="' + window._genesys.widgets.extend.Floater.title + '" id="cx-floater-icon-chat"></div><div class="cx-floater-counter cx-hidden"><span></span></div></div>');
+			}
+			else {
+				$('body').append('<div class="cx-floater cx-hidden"><div class="cx-floater-icon"><img src="' + window._genesys.widgets.extend.Floater.iconHover + '"' + ' title="' + window._genesys.widgets.extend.Floater.title + '" id="cx-floater-icon-chat"></div><div class="cx-floater-counter cx-hidden"><span></span></div></div>');
+			}
+		},
+		resetBadge: function() {
+			$('.cx-floater .cx-floater-counter').addClass('cx-hidden');
+			$('.cx-floater .cx-floater-counter span').text('');
+		},
+		show: function() {
+			$('.cx-floater').removeClass('cx-hidden');
+		},
+		setBadge: function() {
+			if (window._genesys.widgets.extend.State.core.isMinimised) {
+				window._genesys.widgets.extend.State.core.getUnreadMessageState();
+				if (window._genesys.widgets.extend.State.core.unreadMessageCount != 0) {
+					$('.cx-floater .cx-floater-counter').removeClass('cx-hidden');
+
+					if (window._genesys.widgets.extend.State.core.hasActiveBot) {
+						$('.cx-floater .cx-floater-counter span').text(1);
+					}
+					else {
+						$('.cx-floater .cx-floater-counter span').text(window._genesys.widgets.extend.State.core.unreadMessageCount);
+					}
+				}
+				else {
+					$('.cx-floater .cx-floater-counter').addClass('cx-hidden');
+					$('.cx-floater .cx-floater-counter span').text('');
+				}
+			}
+		},
+		setIcon: function() {
+			$(document).find('#cx-floater-icon-chat').attr('src', gwc_environment.serverName + '/content/dam/kb/public/images/icon-chat.png');
+		}
+	};
+
+	if (Floater) {
+		Floater.registerEvents(['closed', 'opened', 'ready']);
+		Floater.republish('ready');
+
+		Floater.registerCommand('open', function(e) {
+			method.open();
+			e.deferred.resolve();
+			Floater.republish('opened');
+		});
+
+		Floater.registerCommand('close', function(e) {
+			e.deferred.resolve();
+			Floater.republish('closed');
+		});
+
+		Floater.subscribe('WebChatService.messageReceived', function(e) {
+			method.setBadge();
+		});
+
+		Floater.subscribe('WebChat.minimized', function(e) {
+			method.show();
+		});
+
+		Floater.subscribe('WebChat.opened', function(e) {
+			method.setIcon();
+			method.hide();
+		});
+
+		Floater.subscribe('WebChat.unminimized', function(e) {
+			method.setIcon();
+			method.hide();
+			method.resetBadge();
+		});
+
+		Floater.subscribe('WebChatService.started', function(e) {
+			method.setIcon();
+			method.hide();
+		});
+
+		Floater.subscribe('WebChatService.ended', function(e) {
+
+		});
+
+		Floater.subscribe('WindowManager.changed', function(e) {
+			if (!window._genesys.widgets.extend.State.core.hasActiveSession) {
+				if (gwc.getEnableSlider() == 'false') {
+					method.hide();
+				}
+				else {
+					method.show();
+				}				
+			}
+		});
+
+		$(function() {
+			$(document).on('mouseenter', '#cx-floater-icon-chat', function() {
+				$(this).attr('src', gwc_environment.serverName + '/content/dam/kb/public/images/icon-chat-hover.png');
+			});
+
+			$(document).on('mouseleave', '#cx-floater-icon-chat', function() {
+				$(this).attr('src', gwc_environment.serverName + '/content/dam/kb/public/images/icon-chat.png');
+			});
+		});
+
+		Floater.ready();
+	}
+};
+
+
+window._genesys.widgets.extensions['Help'] = function($, CXBus, Common) {
+	var Help = CXBus.registerPlugin('Help');
+
+	if (Help) {
+		Help.registerEvents(['closed', 'opened', 'ready']);
+		Help.republish('ready');
+
+		window._genesys.widgets.extend.Help.core = {
+			isInit: false,
+			checkInit: function() {
+				var _this = this;
+
+				if (location.href.indexOf(window._genesys.widgets.extend.Help.emailTroubleshootingURL) > -1) {
+					_this.isInit = true;
+				}
+			}
+		};
+
+		Help.registerCommand('open', function(e) {
+			Help.command('WebChat.open');
+			e.deferred.resolve();
+			Help.republish('opened');
+		});
+
+		Help.registerCommand('close', function(e) {
+			e.deferred.resolve();
+			Help.republish('closed');
+		});
+
+		Help.subscribe('WebChatService.started', function(e) {
+			var getXtraTroubleshooting = function() {
+				var data = {};
+				var journey = '';
+
+				if ($('#tsdata').length) {
+					journey = $('#tsdata').val();
+				}
+
+				data = {
+					Journey: journey
+				}
+
+				return data;
+			}
+
+			var setUserData = function() {
+				var data = {};
+				var XtraTroubleshooting = getXtraTroubleshooting();
+
+				if (location.href.indexOf(window._genesys.widgets.extend.Help.emailTroubleshootingURL) > -1) {
+					data = {
+						XtraTroubleshootingJourney: XtraTroubleshooting.Journey
+					}
+
+					gwc_environment.debug && console.log('UserData', data);
+					Help.command('WebChatService.updateUserData', data);
+				}
+			}
+
+			setUserData();
+		});
+
+		Help.ready();
+	}
+};
+
+
+window._genesys.widgets.extensions['MySpark'] = function($, CXBus, Common) {
+	var MySpark = CXBus.registerPlugin('MySpark');
+
+	if (MySpark) {
+		MySpark.registerEvents(['closed', 'opened', 'ready']);
+		MySpark.republish('ready');
+
+		window._genesys.widgets.extend.MySpark.core = {
+			c: 0,
+			businessName: '',
+			email: '',		
+			firstName: '',
+			isAuthenticated: false,
+			lastName: '',
+			userName: '',
+			userNameType: '',
+			getAuth: function() {
+				var _this = this;
+
+				$.ajax({
+					url: window._genesys.widgets.extend.MySpark.authURL,
+					type: 'GET',
+					async: false,
+					timeout: 3000,
+					success: function(data) {
+						_this.c = data.c;
+						_this.firstName = window._genesys.widgets.extend.UI.core.toTitleCase(data.d);
+						_this.lastName = window._genesys.widgets.extend.UI.core.toTitleCase(data.e);
+						_this.businessName = data.f;
+						_this.userName = data.g;
+						_this.userNameType = data.h;
+					},
+					error: function(jqXHR, textStatus, errorThrown) {
+						gwc_environment.debug && console.log('getAuth ' + window._genesys.widgets.extend.MySpark.authURL + ' returned ' + (textStatus != null ? textStatus : errorThrown));
+					},
+					complete: function(jqXHR, textStatus) {
+						if (_this.c != 0) {
+							_this.isAuthenticated = true;
+						}
+
+						if (_this.userNameType == 'Email') {
+							_this.email = _this.userName;
+						}
+
+						if (_this.firstName == '') {
+							_this.firstName = _this.businessName;
+						}
+
+						if (_this.lastName == '') {
+							_this.lastName = _this.businessName;
+						}
+					}
+				});
+			}	
+		};
+
+		MySpark.registerCommand('open', function(e) {
+			if (window._genesys.widgets.extend.MySpark.core.isAuthenticated) {
+				if (window._genesys.widgets.extend.State.core.hasActiveBot) {
+					MySpark.command('WebChat.open', {
+						form: {
+							autoSubmit: true,
+							firstname: window._genesys.widgets.extend.MySpark.core.firstName,
+							lastname: window._genesys.widgets.extend.MySpark.core.lastName,
+							email: window._genesys.widgets.extend.MySpark.core.email,
+							subject: ''
+						}
+					}).done(function(e) {
+						window._genesys.widgets.extend.UI.core.setChatFormHide();
+					}).fail(function(e) {
+						//
+					});
+				}
+				else {
+					var question = '';
+
+					if ($('#live-chat-ticket-tracker-question').length) {
+						question = $('#live-chat-ticket-tracker-question').val();
+					}
+
+					MySpark.command('WebChat.open', {
+						form: {
+							autoSubmit: false,
+							firstname: window._genesys.widgets.extend.MySpark.core.firstName,
+							lastname: window._genesys.widgets.extend.MySpark.core.lastName,
+							email: window._genesys.widgets.extend.MySpark.core.email,
+							subject: gwc.getParameter('ticketId') != '' ? question : ''
+						}
+					}).done(function(e) {
+
+					}).fail(function(e) {
+						//
+					});
+				}
+
+				if (window._genesys.widgets.extend.State.core.hasActiveSession && window._genesys.widgets.extend.State.core.hasActiveBot) {
+					window._genesys.widgets.extend.UI.core.setChatFormShow();
+				}
+			}
+			e.deferred.resolve();
+			MySpark.republish('opened');
+		});
+
+		MySpark.registerCommand('close', function(e) {
+			e.deferred.resolve();
+			MySpark.republish('closed');
+		});
+
+		MySpark.subscribe('WebChat.opened', function(e) {
+			var maximise = {
+				minimized: false
+			};
+
+			if (window._genesys.widgets.extend.MySpark.core.isAuthenticated) {
+				$('#cx_webchat_form_firstname').val(window._genesys.widgets.extend.MySpark.core.firstName);
+				$('#cx_webchat_form_lastname').val(window._genesys.widgets.extend.MySpark.core.lastName);
+				$('#cx_webchat_form_email').val(window._genesys.widgets.extend.MySpark.core.email);
+
+				if (location.href.indexOf(window._genesys.widgets.extend.Configuration.appChatURL) > -1 && gwc.getParameter('ticketID') != "" && gwc.getParameter('ticketQuestion') != "") {
+					var question = gwc.getParameter('ticketQuestion').split('_').join(' ');
+					$('#cx_webchat_form_subject').val(question);
+				}
+
+				if (location.href.indexOf(window._genesys.widgets.extend.MySpark.secureAuthURL) > -1) {
+					if (window._genesys.widgets.extend.State.core.isMinimised) {
+						MySpark.command('WebChat.minimize', maximise);
+						gwc_environment.debug && console.log('MySpark.subscribe WebChat.opened, WebChat.minimize', maximise);
+					}
+				}
+			}
+		});
+
+		MySpark.subscribe('WebChatService.started', function(e) {
+			var getAuth = function() {
+				var a = '';
+				var b = '';
+				var c = 0;
+				var businessName = '';
+				var email = '';
+				var firstName = '';
+				var fullName = '';
+				var isAuthenticated = false;
+				var lastName = '';
+				var mobileNumber = '';
+				var userName = '';
+				var userNameType = '';
+				var data = {};
+
+				$.ajax({
+					url: window._genesys.widgets.extend.MySpark.authURL,
+					type: 'GET',
+					async: false,
+					timeout: 3000,
+					success: function(data) {
+						a = data.a;
+						b = data.b;
+						c = data.c;
+						firstName = window._genesys.widgets.extend.UI.core.toTitleCase(data.d);
+						lastName = window._genesys.widgets.extend.UI.core.toTitleCase(data.e);
+						businessName = data.f;
+						userName = data.g;
+						userNameType = data.h;
+					},
+					error: function(jqXHR, textStatus, errorThrown) {
+						gwc_environment.debug && console.log('getAuth ' + window._genesys.widgets.extend.MySpark.authURL + ' returned ' + (textStatus != null ? textStatus : errorThrown));
+					},
+					complete: function(jqXHR, textStatus) {
+						if (c != 0) {
+							isAuthenticated = true;
+						}
+
+						if (userNameType == 'Email') {
+							email = userName;
+						}
+
+						if (userNameType == 'Mobile') {
+							mobileNumber = userName;
+						}
+
+						if (firstName != '') {
+							fullName = firstName + ' ' + lastName;
+						}
+
+						if (firstName == '') {
+							firstName = businessName;
+							fullName = businessName;
+						}
+					}
+				});
+
+				data = {
+					A: a,
+					B: b,
+					C: c,
+					MySparkFullName: fullName,
+					MySparkEmail: email,
+					MySparkMobileNumber: mobileNumber
+				}
+
+				return data;
+			}
+
+			var getBroadbandDiagnostic = function() {
+				var data = {};
+				var journey = '';
+				var serviceID = '';
+
+				if ($('#live-chat-journey').length) {
+					journey = $('#live-chat-journey').val();
+				}
+
+				if ($('#live-chat-serviceID').length) {
+					serviceID = $('#live-chat-serviceID').val();
+				}
+
+				data = {
+					Journey: journey,
+					ServiceID: serviceID
+				}
+
+				return data;
+			}
+
+			var setUserData = function() {
+				var Auth = getAuth();
+				var BroadbandDiagnostic = getBroadbandDiagnostic();
+
+				MySpark.command('WebChatService.getSessionData').done(function(e) {
+					if (Auth.C != 0 && BroadbandDiagnostic.Journey != '' && BroadbandDiagnostic.ServiceID != '') {
+						var data = {};
+						data = {
+							IAM_UID: Auth.A,
+							IAM_TOKEN: Auth.B,
+							IAM_EXPIRE: Auth.C,
+							IAM_SECURE_KEY: e.secureKey,
+							IAM_USER_ID: e.userId,
+							MySparkFullName: Auth.MySparkFullName,
+							MySparkEmail: Auth.MySparkEmail,
+							MySparkMobileNumber: Auth.MySparkMobileNumber,
+							BroadbandDiagnosticJourney: BroadbandDiagnostic.Journey,
+							BroadbandDiagnosticServiceID: BroadbandDiagnostic.ServiceID
+						}
+
+						gwc_environment.debug && console.log('UserData', data);
+						MySpark.command('WebChatService.updateUserData', data);
+					}
+
+					if (Auth.C != 0 && BroadbandDiagnostic.Journey == '' && BroadbandDiagnostic.ServiceID == '') {
+						var data = {};
+						data = {
+							IAM_UID: Auth.A,
+							IAM_TOKEN: Auth.B,
+							IAM_EXPIRE: Auth.C,
+							IAM_SECURE_KEY: e.secureKey,
+							IAM_USER_ID: e.userId,
+							MySparkFullName: Auth.MySparkFullName,
+							MySparkEmail: Auth.MySparkEmail,
+							MySparkMobileNumber: Auth.MySparkMobileNumber
+						}
+
+						gwc_environment.debug && console.log('UserData', data);
+						MySpark.command('WebChatService.updateUserData', data);
+					}
+				});
+			}
+
+			setUserData();
+
+			if (window._genesys.widgets.extend.State.core.hasActiveBot) {
+				window._genesys.widgets.extend.UI.core.setChatFormShow();
+				window._genesys.widgets.extend.UI.core.setChatFormInputField();
+			}
+
+			window._genesys.widgets.extend.UI.core.setChatFormInputScroll();
+		});
+
+		MySpark.subscribe('WebChatService.restored', function(e) {
+			if (window._genesys.widgets.extend.MySpark.core.isAuthenticated) {
+				if (location.href.indexOf(window._genesys.widgets.extend.MySpark.secureAuthURL) > -1) {
+					var getAuth = function() {
+						var a = '';
+						var b = '';
+						var c = 0;
+						var businessName = '';
+						var email = '';
+						var firstName = '';
+						var fullName = '';
+						var isAuthenticated = false;
+						var lastName = '';
+						var mobileNumber = '';
+						var userName = '';
+						var userNameType = '';
+						var data = {};
+
+						$.ajax({
+							url: window._genesys.widgets.extend.MySpark.authURL,
+							type: 'GET',
+							async: false,
+							timeout: 3000,
+							success: function(data) {
+								a = data.a;
+								b = data.b;
+								c = data.c;
+								firstName = window._genesys.widgets.extend.UI.core.toTitleCase(data.d);
+								lastName = window._genesys.widgets.extend.UI.core.toTitleCase(data.e);
+								businessName = data.f;
+								userName = data.g;
+								userNameType = data.h;
+							},
+							error: function(jqXHR, textStatus, errorThrown) {
+								gwc_environment.debug && console.log('getAuth ' + window._genesys.widgets.extend.MySpark.authURL + ' returned ' + (textStatus != null ? textStatus : errorThrown));
+							},
+							complete: function(jqXHR, textStatus) {
+								if (c != 0) {
+									isAuthenticated = true;
+								}
+
+								if (userNameType == 'Email') {
+									email = userName;
+								}
+
+								if (userNameType == 'Mobile') {
+									mobileNumber = userName;
+								}
+
+								if (firstName != '') {
+									fullName = firstName + ' ' + lastName;
+								}
+
+								if (firstName == '') {
+									firstName = businessName;
+									fullName = businessName;
+								}
+							}
+						});
+
+						data = {
+							A: a,
+							B: b,
+							C: c,
+							MySparkFullName: fullName,
+							MySparkEmail: email,
+							MySparkMobileNumber: mobileNumber
+						}
+
+						return data;
+					}
+
+					var setUserData = function() {
+						var Auth = getAuth();
+
+						MySpark.command('WebChatService.getSessionData').done(function(e) {
+							if (Auth.C != 0) {
+								var data = {};
+								var message = {};
+								data = {
+									IAM_UID: Auth.A,
+									IAM_TOKEN: Auth.B,
+									IAM_EXPIRE: Auth.C,
+									IAM_SECURE_KEY: e.secureKey,
+									IAM_USER_ID: e.userId,
+									MySparkFullName: Auth.MySparkFullName,
+									MySparkEmail: Auth.MySparkEmail,
+									MySparkMobileNumber: Auth.MySparkMobileNumber
+								}
+
+								message = {
+									message: window._genesys.widgets.extend.UI.chatToAgentMessage
+								}
+
+								gwc_environment.debug && console.log('UserData', data);
+								gwc_environment.debug && console.log('SendCustomNotice', message);
+
+								MySpark.command('WebChatService.updateUserData', data);
+								MySpark.command('WebChatService.sendCustomNotice', message);
+							}
+						});
+					}
+
+					setUserData();
+				}
+			}
+		});
+
+		MySpark.ready();
+	}
+};
+
+
+window._genesys.widgets.extensions['PushURL'] = function($, CXBus, Common) {
+	var PushURL = CXBus.registerPlugin('PushURL');
+
+	if (PushURL) {
+		PushURL.registerEvents(['ready']);
+		PushURL.republish('ready');
+
+		window._genesys.widgets.extend.PushURL.core = {
+
+		};
+
+		PushURL.subscribe('WebChatService.messageReceived', function(e) {
+			if (e.data.messages[0].type == 'PushUrl' && e.data.messages[0].from.type == 'Agent') {
+				var url = e.data.messages[0].text;
+				var i;
+				var l = window._genesys.widgets.extend.PushURL.domainList.length;
+
+				for (i = 0; i < l; i++) {
+					if (url.indexOf(window._genesys.widgets.extend.PushURL.domainList[i]) > -1) {
+						location.href = url;
+					}
+				}
+			}
+		});
+
+		PushURL.ready();
+	}
+};
+
+
+window._genesys.widgets.extensions['ServiceStatus'] = function($, CXBus, Common) {
+	var ServiceStatus = CXBus.registerPlugin('ServiceStatus');
+
+	if (ServiceStatus) {
+		ServiceStatus.registerEvents(['closed', 'opened', 'ready']);
+		ServiceStatus.republish('ready');
+
+		window._genesys.widgets.extend.ServiceStatus.core = {
+			initModal: function() {
+				var FormView = Common.Generate.Container({
+						type: 'overlay',
+						title: 'Service Status',
+						body: '<div class="cx-channel-selector"><div class="message"></div><div class="cx-wrapper"><div class="cx-channels"> <div class="cx-channel cx-channel-mobile"><div class="cx-icon px64"><img src="'+gwc_environment.serverName+'/content/dam/kb/public/images/icon-info-blue-secondary.png" class="cx-img-map"></div><div class="channel-details"><div class="name">Mobile</div></div></div> <div class="cx-channel cx-channel-internet"><div class="cx-icon px64"><img src="'+gwc_environment.serverName+'/content/dam/kb/public/images/icon-info-blue-secondary.png" class="cx-img-map"></div><div class="channel-details"><div class="name">Internet</div></div></div> <div class="cx-channel cx-channel-email"><div class="cx-icon px64"><img src="'+gwc_environment.serverName+'/content/dam/kb/public/images/icon-info-blue-secondary.png" class="cx-img-map"></div><div class="channel-details"><div class="name">Mail</div></div></div> <div class="cx-channel cx-channel-landline"><div class="cx-icon px64"><img src="'+gwc_environment.serverName+'/content/dam/kb/public/images/icon-info-blue-secondary.png" class="cx-img-map"></div><div class="channel-details"><div class="name">Landline</div></div></div> </div></div></div>',
+						icon: '',
+						controls: 'close',
+						buttons: {}
+					});
+
+				var ModalView = {
+					html: FormView,
+					immutable: false
+				};
+
+				ServiceStatus.command('Overlay.open', ModalView).done(function(e) {
+					if (window._genesys.widgets.extend.UI.core.isMobile) {
+						$(document).find('.cx-widget.ow-modal').addClass('cx-channel-selector-overlay-mobile');
+						$(document).find('.cx-common-container').addClass('cx-channel-container-mobile');
+						$(e.html).find('.cx-channel-selector .cx-wrapper').addClass('cx-wrapper-mobile');
+						window._genesys.widgets.extend.UI.core.setChannelSelectorOrientation();
+					}
+					else {
+						$(e.html).find('.cx-channel-selector .cx-wrapper').addClass('cx-channel-wrapper');
+					}
+
+					$(e.html).find('div').removeClass('cx-buttons-binary');
+					$(e.html).find('button.btn.btn-default').remove();
+					$(e.html).find('.cx-button-close').click(function() {
+						ServiceStatus.command('ServiceStatus.close');
+					});
+
+					$(e.html).find('.cx-channel-mobile').click(function() {
+						window.open(window._genesys.widgets.extend.ServiceStatus.mobileURL);
+					});
+
+					$(e.html).find('.cx-channel-internet').click(function() {
+						window.open(window._genesys.widgets.extend.ServiceStatus.internetURL);
+					});
+
+					$(e.html).find('.cx-channel-email').click(function() {
+						window.open(window._genesys.widgets.extend.ServiceStatus.mailURL);
+					});
+
+					$(e.html).find('.cx-channel-landline').click(function() {
+						window.open(window._genesys.widgets.extend.ServiceStatus.landlineURL);
+					});
+				});
+			}
+		};
+
+		ServiceStatus.registerCommand('open', function(e) {
+			window._genesys.widgets.extend.ServiceStatus.core.initModal();
+			e.deferred.resolve();
+			ServiceStatus.republish('opened');
+		});
+
+		ServiceStatus.registerCommand('close', function(e) {
+			ServiceStatus.command('ChannelSelector.open');
+			e.deferred.resolve();
+			ServiceStatus.republish('closed');
+		});
+
+		ServiceStatus.ready();
+	}
+};
+
+
+window._genesys.widgets.extensions['State'] = function($, CXBus, Common) {
+	var State = CXBus.registerPlugin('State');
+
+	if (State) {
+		State.registerEvents(['ready']);
+		State.republish('ready');
+
+		window._genesys.widgets.extend.State.core = {
+			hadBotHistory: false,
+			hasActiveBot: false,
+			hasActiveSession: false,
+			hasUUID: false,
+			isFloater: false,
+			isMinimised: false,
+			isWindowOpen: false,
+			overrideIsBotChatLive: false,
+			overrideIsBotChatBot: false,
+			sessionUUID: '',
+			unreadMessageCount: 0,
+			getBotState: function() {
+				if (document.cookie.indexOf(window._genesys.widgets.extend.State.bot) > -1) {
+					this.hasActiveBot = true;
+				}
+			},
+			getMinimiseState: function() {
+				if (window._genesys.widgets.common.getCookie(window._genesys.widgets.extend.State.minimise) != undefined) {
+					if (window._genesys.widgets.common.getCookie(window._genesys.widgets.extend.State.minimise) == 'false') {
+						this.isMinimised = false;
+					}
+					if (window._genesys.widgets.common.getCookie(window._genesys.widgets.extend.State.minimise) == 'true') {
+						this.isMinimised = true;
+					}
+				}
+			},
+			getOpenWindowState: function() {
+				if (window._genesys.widgets.common.getCookie(window._genesys.widgets.extend.State.open) != undefined) {
+					if (window._genesys.widgets.common.getCookie(window._genesys.widgets.extend.State.open) == 'false') {
+						this.isWindowOpen = false;
+					}
+					if (window._genesys.widgets.common.getCookie(window._genesys.widgets.extend.State.open) == 'true') {
+						this.isWindowOpen = true;
+					}
+				}
+			},
+			getSessionState: function() {
+				if (document.cookie.indexOf(window._genesys.widgets.extend.State.session) > -1) {
+					this.hasActiveSession = true;
+				}
+			},
+			getSessionUUID: function() {
+				var sessionUUID = '';
+
+				if (this.hasUUID) {
+					sessionUUID = window._genesys.widgets.common.getCookie(window._genesys.widgets.extend.State.uuid) != null ? window._genesys.widgets.common.getCookie(window._genesys.widgets.extend.State.uuid) : '';
+				}
+
+				return sessionUUID;
+			},
+			getUnreadMessageState: function() {
+				if (window._genesys.widgets.common.getCookie(window._genesys.widgets.extend.State.unreadMessageCount) != undefined) {
+					if (window._genesys.widgets.common.getCookie(window._genesys.widgets.extend.State.unreadMessageCount) != 0) {
+						this.unreadMessageCount = window._genesys.widgets.common.getCookie(window._genesys.widgets.extend.State.unreadMessageCount);
+					}
+					else {
+						this.unreadMessageCount = 0;
+					}
+				}
+			},			
+			getUUID: function() {
+				if (document.cookie.indexOf(window._genesys.widgets.extend.State.uuid) > -1) {
+					this.hasUUID = true;
+				}
+			},
+			removeBotState: function() {
+				if (this.hasActiveBot) {
+					window._genesys.widgets.common.deleteCookie(window._genesys.widgets.extend.State.bot);
+					this.hasActiveBot = false;
+				}
+			},
+			removeBotHistory: function() {
+				if (this.hadBotHistory) {
+					window._genesys.widgets.common.deleteCookie(window._genesys.widgets.extend.State.history);
+					this.hadBotHistory = false;
+				}
+			},
+			removeInteractHeight: function() {
+				if (document.cookie.indexOf(window._genesys.widgets.extend.State.height) > -1) {
+					window._genesys.widgets.common.deleteCookie(window._genesys.widgets.extend.State.height);
+				}
+			},
+			removeInteractWidth: function() {
+				if (document.cookie.indexOf(window._genesys.widgets.extend.State.width) > -1) {
+					window._genesys.widgets.common.deleteCookie(window._genesys.widgets.extend.State.width);
+				}
+			},
+			removeSessionState: function() {
+				if (this.hasActiveSession) {
+					this.hasActiveSession = false;
+				}
+			},
+			setBotHistory: function() {
+				if (!this.hadBotHistory) {
+					window._genesys.widgets.common.setCookie(window._genesys.widgets.extend.State.history, true);
+					this.hadBotHistory = true;
+				}
+			},		
+			setBotState: function() {
+				if (!this.hasActiveBot) {
+					window._genesys.widgets.common.setCookie(window._genesys.widgets.extend.State.bot, true);
+					this.hasActiveBot = true;
+				}
+			},
+			setInteractHeight: function(height) {
+				window._genesys.widgets.common.setCookie(window._genesys.widgets.extend.State.height, height);
+			},
+			setInteractWidth: function(width) {
+				window._genesys.widgets.common.setCookie(window._genesys.widgets.extend.State.width, width);
+			},
+			setUUID: function() {
+				if (!this.hasUUID) {
+					window._genesys.widgets.common.setCookie(window._genesys.widgets.extend.State.uuid, window._genesys.widgets.common.guid());
+					this.hasUUID = true;
+				}
+			}
+		};
+		
+		State.subscribe('WebChatService.started', function(e) {
+			var getUUID = function() {
+				var data = {};
+				var sessionID = '';
+
+				if (window._genesys.widgets.extend.State.core.hasUUID) {
+					sessionID = window._genesys.widgets.extend.State.core.getSessionUUID();
+				}
+
+				data = {
+					UUID: sessionID
+				}
+
+				return data;
+			}
+
+			var setUserData = function() {
+				var data = {};
+				var Session = getUUID();
+				data = {
+					SessionUUID: Session.UUID
+				}
+
+				gwc_environment.debug && console.log('UserData', data);
+				State.command('WebChatService.updateUserData', data);
+			}
+
+			setUserData();
+		});
+
+		State.ready();
+	}
+};
+
+
+window._genesys.widgets.extensions['Stats'] = function($, CXBus, Common) {
+	var Stats = CXBus.registerPlugin('Stats');
+
+	if (Stats) {
+		Stats.registerEvents(['ready']);
+		Stats.republish('ready');
+
+		window._genesys.widgets.extend.Stats.core = {
+			ewt: 0,
+			queue: window._genesys.widgets.channelselector.channels[0].ewt.queue,
+			convertToHMS: function(unit) {
+				var hour = Math.floor(unit / 3600);
+				var minute = Math.floor(unit % 3600 / 60);
+				var second = Math.floor(unit % 3600 % 60);
+				var hourDisplay = hour > 0 ? hour + (hour == 1 ? " hour, " : " hours, ") : "";
+				var minuteDisplay = minute > 0 ? minute + (minute == 1 ? " minute, " : " minutes, ") : "";
+				var secondDisplay = second > 0 ? second + (second == 1 ? " second" : " seconds") : "";
+
+				return hourDisplay + minuteDisplay + secondDisplay;
+			},
+			convertToM: function(unit) {
+				var minute = Math.floor(unit % 3600 / 60);
+				var minuteDisplay = minute > 0 ? minute + (minute == 1 ? " minute." : " minutes.") : "";
+
+				return minuteDisplay;
+			},
+			getEWTDisplay: function(seconds) {
+				var description = '';
+
+				if (seconds <= window._genesys.widgets.extend.ChatStatus.ewtThresholdIntervalMin) {
+					description = window._genesys.widgets.extend.ChatStatus.ewtThresholdDisplayMin;
+				}
+				else if (seconds >= window._genesys.widgets.extend.ChatStatus.ewtThresholdIntervalMax) {
+					description = window._genesys.widgets.extend.ChatStatus.ewtThresholdDisplayMax;
+				}
+				else {
+					description = window._genesys.widgets.extend.ChatStatus.ewtThresholdDisplayDefault + ' ' + this.convertToM(seconds);
+				}
+
+				return description;
+			},
+			getEWTInterval: function() {
+				var _this = this;
+
+				$.ajax({
+					url: window._genesys.widgets.extend.Stats.ewtURL,
+					type: 'GET',
+					async: false,
+					success: function(data) {		
+						if (data[window._genesys.widgets.extend.Configuration.core.queue]) {
+							_this.ewt = data[window._genesys.widgets.extend.Configuration.core.queue].ewt;
+						}
+					},
+					error: function() {
+
+					},
+					complete: function() {
+
+					}
+				});
+
+				return _this.ewt;
+			}
+		};
+
+		Stats.ready();
+	}
+};
+
+
+window._genesys.widgets.extensions['UI'] = function($, CXBus, Common) {
+	var UI = CXBus.registerPlugin('UI');
+
+	if (UI) {
+		UI.registerEvents(['ready', 'clicked']);
+		UI.republish('ready');
+
+		window._genesys.widgets.extend.UI.core = {
+			browser: window._genesys.widgets.common.getBrowserandOS().browser,
+			errorCount: 0,
+			hasSendMessageProgress: false,
+			inputMessage: '',
+			isLoading: false,
+			isMobile: window._genesys.widgets.common.isMobileDevice(),
+			isRestoreTimeout: false,
+			isUserInputRequired: false,
+			isWebChatFormOpen: false,
+			orientation: 'portrait',
+			operatingSystem: window._genesys.widgets.common.getBrowserandOS().os,
+			checkErrorMessage: function() {
+				var size = $('#cx_chat_error_desc').text().length;
+
+				if (size != 0) {
+					this.setChatFormShow();
+
+					if (this.errorCount == 0) {
+						this.resetChatForm();
+						//this.setChatFormTitleReset();
+						this.setChatFormCloseErrorReset();
+						this.errorCount = 1;
+					}
+				}
+			},
+			checkWindowSize: function() {
+				if ($('.cx-interact-resize-drag').width() >= window.innerWidth) {
+					var width = window.innerWidth * 0.9;
+
+					$('.cx-interact-resize-drag').css({'width': width + 'px'});
+					window._genesys.widgets.extend.State.core.setInteractWidth(width);
+					window._genesys.widgets.extend.UI.core.resizeTrigger();
+				}
+
+				if ($('.cx-interact-resize-drag').height() >= window.innerHeight) {
+					var height = window.innerHeight * 0.95;
+
+					$('.cx-interact-resize-drag').css({'height': height + 'px'});
+					window._genesys.widgets.extend.State.core.setInteractHeight();
+					window._genesys.widgets.extend.UI.core.setInteractTranscript(height - 500);
+					window._genesys.widgets.extend.UI.core.resizeTrigger();
+				}
+			},
+			countCharacter: function(input) {
+				var characterLength = input.length;
+				var characterRemaining = window._genesys.widgets.extend.UI.characterMaxBot - characterLength;
+
+				if (characterLength >= 0 && characterLength <= window._genesys.widgets.extend.UI.characterMaxBot) {
+					$('#cx-character-count').text(characterRemaining);
+
+					if (characterRemaining == 0) {
+						$('#cx-character-count-container').addClass('cx-character-alert');
+					}
+					else {
+						$('#cx-character-count-container').removeClass('cx-character-alert');
+					}
+				}
+			},
+			closeTimeOutToaster: function() {
+				var size = $('.cx-widget .cx-title:contains("'+window._genesys.widgets.extend.UI.chatEndedTitle+'")').length;
+
+				if (size != 0) {
+					$('.cx-widget .cx-title').parent().parent().parent().addClass('cx-hide');
+					$('.cx-widget button.cx-icon.cx-button-close').trigger('click');
+				}				
+			},
+			focusOnLastMessage: function() {
+				if (window._genesys.widgets.extend.UI.core.operatingSystem == 'iOS') {
+					$('div.cx-transcript').scrollTop($('div.cx-transcript').prop('scrollHeight') - $('div.cx-message:last').height() - $('div.cx-message:last').height());
+				}
+				else {
+					$('div.cx-transcript').scrollTop($('div.cx-transcript').prop('scrollHeight') -  $('div.cx-message:last').height() - $('div.cx-transcript').offset().top);
+				}
+			},
+			getChatBot: function() {
+				if (!window._genesys.widgets.extend.Configuration.core.status) {
+					UI.command('ChatStatus.open');
+				}
+				else {
+					!window._genesys.widgets.extend.Configuration.core.enableBot ? window._genesys.widgets.extend.State.core.overrideIsBotChatBot = true : window._genesys.widgets.extend.State.core.overrideIsBotChatBot = false;
+					UI.command('ChatDeflector.open');
+				}
+			},
+			getChatLive: function() {
+				if (!window._genesys.widgets.extend.Configuration.core.status) {
+					UI.command('ChatStatus.open');
+				}
+				else {
+					if (window._genesys.widgets.extend.MySpark.core.isAuthenticated) {
+						UI.command('MySpark.open');
+					}
+					else {
+						UI.command('WebChat.open');
+					}
+
+					window._genesys.widgets.extend.State.core.overrideIsBotChatLive = true;
+				}
+			},
+			getOrientation: function() {
+				var orientationType = '';
+
+				switch(window.orientation) {
+					case -90:
+					case 90:
+					orientationType = 'landscape';
+					break;
+
+					default:
+					orientationType = 'portrait';
+					break;
+				}
+
+				return orientationType;
+			},
+			minimiseActiveChat: function() {
+				var minimise = {
+					minimized: true
+				};
+
+				if (window._genesys.widgets.extend.State.core.hasActiveSession) {
+					if (!window._genesys.widgets.extend.State.core.isMinimised && window._genesys.widgets.extend.UI.core.isWebChatFormOpen) {
+						UI.command('WebChat.minimize', minimise);
+						gwc_environment.debug && console.log('minimiseActiveChat, WebChat.minimize', minimise);
+					}				
+				}
+			},
+			maximiseActiveChat: function() {
+				var maximise = {
+					minimized: false
+				};
+
+				if (window._genesys.widgets.extend.State.core.hasActiveSession) {
+					if (window._genesys.widgets.extend.State.core.isMinimised && window._genesys.widgets.extend.UI.core.isWebChatFormOpen) {
+						UI.command('WebChat.minimize', maximise);
+						gwc_environment.debug && console.log('maximiseActiveChat, WebChat.minimize', maximise);
+					}
+				}
+			},
+			maximiseActiveForm: function() {
+				if (!window._genesys.widgets.extend.State.core.hasActiveSession && window._genesys.widgets.extend.UI.core.isWebChatFormOpen) {
+					if ($('.cx-widget.cx-minimized').length != 0) {
+						UI.command('WebChat.minimize');
+					}
+				}
+			},
+			removeBotChatCharacterDescription: function() {
+				$('.cx-char-count-description').remove();
+			},
+			removeBotChatPrivacyPolicy: function() {
+				$('.cx-privacy-policy').remove();
+			},
+			removeCharacterCount: function() {
+				$('.cx-char-count').remove();
+			},
+			resetChatForm: function() {
+				$('#cx_webchat_form_firstname').val('');
+				$('#cx_webchat_form_lastname').val('');
+				$('<span>*Please fill out these fields</span>').prependTo('.cx-form-inputs');
+				$('.cx-webchat .cx-form table').find('label[for="cx_webchat_form_firstname"]').text('*First Name:');
+				$('.cx-webchat .cx-form table').find('label[for="cx_webchat_form_lastname"]').text('*Last Name:');
+			},		
+			resizeTrigger: function() {
+				var userAgent = window.navigator.userAgent;
+				var ieEleven = /Trident.*rv[ :]*11\./;
+
+				if (ieEleven.test(userAgent)) {
+					 var action = document.createEvent('UIEvents');
+					 action.initUIEvent('resize', true, false, window, 0);
+					 window.dispatchEvent(action);
+				}
+				else {
+					var resizeEvent = new Event('resize');
+					window.dispatchEvent(resizeEvent);
+				}
+			},
+			scrollToBottomOfTranscript: function() {
+				$('div.cx-transcript').scrollTop($('div.cx-transcript').prop('scrollHeight'));
+			},			
+			sendMessageToBot: function() {
+				if (window._genesys.widgets.extend.State.core.hasActiveSession && window._genesys.widgets.extend.State.core.hasActiveBot) {
+					if (gwc.getBot() == 'false' || window._genesys.widgets.extend.State.core.overrideIsBotChatLive) {
+						var message = {
+							message: window._genesys.widgets.extend.UI.chatToAgentUnit
+						}
+
+						UI.command('WebChatService.sendMessage', message);
+
+						window._genesys.widgets.extend.State.core.overrideIsBotChatLive = false;
+					}
+				}
+			},
+			setBodyClose: function() {
+				$(document).find('body').removeClass('cx-overlay-mobile-open');
+			},
+			setBodyOpen: function() {
+				if (window._genesys.widgets.extend.UI.core.isMobile) {
+					$(document).find('body').addClass('cx-overlay-mobile-open');
+				}
+			},
+			setBotChatCharacterDescription: function() {
+				$("<li class='cx-char-count-description'>"+window._genesys.widgets.extend.UI.characterRemainingDescription+"</li>").insertAfter($("li.cx-char-count.cx-inert"));
+			},			
+			setBotChatLoadingHide: function() {
+				UI.command('WebChat.hideOverlay');
+
+				window._genesys.widgets.extend.UI.core.isLoading = false;
+			},
+			setBotChatLoadingShow: function() {
+				UI.command('WebChat.showOverlay', {
+					html: '<div class="animated-circle"><div class="circle1 child-animated-circle"></div><div class="circle2 child-animated-circle"></div><div class="circle3 child-animated-circle"></div><div class="circle4 child-animated-circle"></div><div class="circle5 child-animated-circle"></div><div class="circle6 child-animated-circle"></div><div class="circle7 child-animated-circle"></div><div class="circle8 child-animated-circle"></div><div class="circle9 child-animated-circle"></div><div class="circle10 child-animated-circle"></div><div class="circle11 child-animated-circle"></div><div class="circle12 child-animated-circle"></div></div>Please wait...',
+					hideFooter: true
+				});
+
+				window._genesys.widgets.extend.UI.core.isLoading = true;
+			},
+			setBotChatPrivacyPolicy: function() {
+				$(window._genesys.widgets.extend.UI.chatPrivacyPolicyHTML).insertBefore($("li.cx-icon.cx-branding-icon.cx-inert"));
+			},			
+			setBotChatStarted: function() {
+				$('.cx-widget span.cx-message-text:contains("Chat Started")').html('<div class="animated-circle"><div class="circle1 child-animated-circle"></div><div class="circle2 child-animated-circle"></div><div class="circle3 child-animated-circle"></div><div class="circle4 child-animated-circle"></div><div class="circle5 child-animated-circle"></div><div class="circle6 child-animated-circle"></div><div class="circle7 child-animated-circle"></div><div class="circle8 child-animated-circle"></div><div class="circle9 child-animated-circle"></div><div class="circle10 child-animated-circle"></div><div class="circle11 child-animated-circle"></div><div class="circle12 child-animated-circle"></div></div>Loading...').addClass('cx-system-message');
+			},
+			setBotChatStartedSystemMessage: function() {
+				$('.cx-widget span.cx-system-message').parent().parent().first().remove();
+			},
+			setBotChatSystemMessage: function() {
+				$('.cx-widget span.cx-system-message').parent().parent().remove();
+			},
+			setBotChatTransferToAgentMessage: function() {
+				var size = $('.cx-widget .cx-message.cx-you span.cx-message-text:contains("'+window._genesys.widgets.extend.UI.chatToAgentUnit+'")').length;
+
+				if (size != 0) {
+					$('.cx-widget .cx-message.cx-you span.cx-message-text:contains("'+window._genesys.widgets.extend.UI.chatToAgentUnit+'")').text(window._genesys.widgets.extend.UI.chatToAgentMessage);
+				}
+			},
+			setChatMessageGroup: function() {
+				$('.cx-widget .cx-message.cx-agent').each(function() {
+					if ($(this).height() <= 34) {
+						$(this).parent().addClass('cx-message-group-single');
+					}
+				});
+			},
+			setChatMessageOutage: function() {
+				var size = $('#gwc-bot-outage-message').length;
+
+				if (size != 0) {
+					$('#gwc-bot-outage-message').parent().parent().parent().parent().prev().remove();
+				}
+
+				$('#gwc-bot-outage-message').parent().parent().addClass('cx-outage');
+			},			
+			setChatCharacterLimit: function() {
+				$('.cx-message-input').attr('maxlength', 500);
+			},
+			setChannelSelectorDescription: function() {
+				$('.cx-channel-selector .cx-titlebar .cx-subtitle').text(window._genesys.widgets.extend.UI.channelSelectorDescription);
+			},
+			setChannelSelectorOrientation: function() {
+				if (window._genesys.widgets.extend.UI.core.orientation == 'portrait') {
+					$(document).find('.cx-channel-selector-overlay-mobile').addClass('cx-channel-selector-overlay-portrait').removeClass('cx-channel-selector-overlay-landscape');
+				}
+				if (window._genesys.widgets.extend.UI.core.orientation == 'landscape') {
+					$(document).find('.cx-channel-selector-overlay-mobile').addClass('cx-channel-selector-overlay-landscape').removeClass('cx-channel-selector-overlay-portrait');
+				}
+			},
+			/*!
+			 * Deprecated
+			 */			
+			setChatFormActionText: function() {
+				$('.cx-widget ul.gwc-action-list li.gwc-action-item a[href="javascript:void(0);"]').each(function(index) {
+					$(this).attr('href', '#');
+				});
+			},
+			setChatFormBotName: function() {
+				// Must contain all the bots in window._genesys.widgets.extend.Bot.agentList
+				$('.cx-widget span.cx-name:contains("Spark")').addClass('hidden');
+				$('.cx-widget span.cx-name:contains("Spark\'s Virtual Assistant")').addClass('hidden');
+			},
+			setChatFormBotTime: function() {
+				// Must contain all the bots in window._genesys.widgets.extend.Bot.agentList
+				$('.cx-widget span.cx-name:contains("Spark")').parent().find('span.cx-time').addClass('hidden');
+				$('.cx-widget span.cx-name:contains("Spark\'s Virtual Assistant")').parent().find('span.cx-time').addClass('hidden');
+			},			
+			setChatFormBotMessage: function() {
+				// Must contain all the bots in window._genesys.widgets.extend.Bot.agentList
+				$('.cx-widget .cx-system span.cx-message-text:contains("Spark Connected")').parent().parent().remove();
+				$('.cx-widget .cx-system span.cx-message-text:contains("Spark Disconnected")').parent().parent().remove();
+				$('.cx-widget .cx-system span.cx-message-text:contains("Spark\'s Virtual Assistant Connected")').parent().parent().remove();
+				$('.cx-widget .cx-system span.cx-message-text:contains("Spark\'s Virtual Assistant Disconnected")').parent().parent().remove();
+			},
+			setChatFormAnonymousCustomerName: function() {
+				$('.cx-widget span.cx-name:contains("'+window._genesys.widgets.extend.Bot.clientFirstName + ' ' + window._genesys.widgets.extend.Bot.clientLastName+'")').addClass('hidden');
+			},
+			setChatFormAnonymousCustomerTime: function() {
+				$('.cx-widget span.cx-name:contains("'+window._genesys.widgets.extend.Bot.clientFirstName + ' ' + window._genesys.widgets.extend.Bot.clientLastName+'")').parent().find('span.cx-time').addClass('hidden');
+			},
+			setChatFormAuthenticatedCustomerName: function() {
+				$('.cx-widget span.cx-name:contains("'+window._genesys.widgets.extend.MySpark.core.firstName + ' ' + window._genesys.widgets.extend.MySpark.core.lastName+'")').addClass('hidden');
+			},
+			setChatFormAuthenticatedCustomerTime: function() {
+				$('.cx-widget span.cx-name:contains("'+window._genesys.widgets.extend.MySpark.core.firstName + ' ' + window._genesys.widgets.extend.MySpark.core.lastName+'")').parent().find('span.cx-time').addClass('hidden');
+			},
+			setChatFormCloseErrorReset: function() {
+				$('.cx-widget button.cx-icon.cx-button-close').removeClass('cx-hide');
+			},
+			setChatFormCloseHide: function() {
+				$('.cx-widget button.cx-icon.cx-button-close').addClass('cx-hide');
+			},
+			setChatFormCloseShow: function() {
+				var size = $('.cx-widget .cx-system span.cx-message-text:contains("*#")').length;
+
+				if (size != 0) {
+					$('.cx-widget button.cx-icon.cx-button-close').removeClass('cx-hide');
+				}
+			},
+			setChatFormMinimiseReset: function() {
+				$('.cx-widget button.cx-icon.cx-button-minimize').addClass('cx-reset-margin-right');
+			},
+			setChatFormMinimiseUnreset: function() {
+				var size = $('.cx-widget .cx-system span.cx-message-text:contains("*#")').length;
+
+				if (size != 0) {
+					$('.cx-widget button.cx-icon.cx-button-minimize').removeClass('cx-reset-margin-right');
+				}
+			},
+			setChatFormDisableInput: function() {
+				$('.cx-widget .cx-input-container textarea').prop('disabled', true);
+			},
+			setChatFormEnableInput: function() {
+				$('.cx-widget .cx-input-container textarea').prop('disabled', false);
+			},
+			setChatFormEnableInputFocus: function() {
+				$('.cx-widget textarea[data-message="ChatInputPlaceholder"]').focus();
+			},
+			setChatFormHide: function() {
+				$('.cx-docked-WebChat').addClass('cx-hidden');
+			},
+			/**
+				Desktop/Mobile WebChat Input.
+			*/
+			setChatFormInputField: function() {
+				if ($('.cx-widget .cx-input-container [data-message="ChatInputPlaceholder"]').css('height') == '0px') {
+					$('.cx-widget .cx-input-container [data-message="ChatInputPlaceholder"]').css('height', '20px');
+				}
+			},
+			setChatFormInputScroll: function() {
+				if (window._genesys.widgets.extend.UI.core.operatingSystem == 'iOS') {
+					$('.cx-widget .cx-input-container').addClass('ios');
+				}
+			},
+			setChatFormMenuHide: function() {
+				$('div.cx-menu-cell').addClass('cx-hidden');
+			},
+			setChatFormNameShow: function() {
+				$('.cx-widget .cx-system span.cx-message-text:contains(" Connected")').parent().parent().parent().nextUntil().find('span.cx-name').removeClass('hidden');
+			},
+			setChatFormShow: function() {
+				$('.cx-docked-WebChat').removeClass('cx-hidden');
+			},
+			setChatFormTimeShow: function() {
+				$('.cx-widget .cx-system span.cx-message-text:contains(" Connected")').parent().parent().parent().nextUntil().find('span.cx-time').removeClass('hidden');
+			},
+			setChatFormTitleReset: function() {
+				var title = window._genesys.widgets.extend.UI.chatTitle[0];
+				$('.cx-title').text(title);
+			},
+			setChatFormUnderline: function() {
+				$('.cx-webchat .cx-form table th:first').addClass('underline');
+				$('.cx-webchat .cx-form table td:first').addClass('underline');
+
+				$('.cx-webchat .cx-form table td input').focusin(function() {
+					$(this).parent().addClass('underline');
+					$('label[for="'+$(this).attr('id')+'"]').parent().addClass('underline');
+				});
+
+				$('.cx-webchat .cx-form table td input').focusout(function() {
+					$('.cx-webchat .cx-form table th:first').removeClass('underline');
+					$('.cx-webchat .cx-form table td:first').removeClass('underline');
+
+					$(this).parent().removeClass('underline');
+					$('label[for="'+$(this).attr('id')+'"]').parent().removeClass('underline');
+				});
+			},
+			setChatRequested: function() {
+				$('.cx-widget span.cx-message-text:first').text('Chat Requested');
+				$('.cx-widget').removeClass('cx-system-message');
+			},
+			setChatRequestedJoined: function() {
+				var size = $('.cx-widget .cx-system span.cx-message-text:contains("has joined the chat session")').length;
+
+				if (size != 0) {
+					$('.cx-widget span.cx-message-text:first').text('Chat Requested');
+					$('.cx-widget').removeClass('cx-system-message');
+				}
+			},
+			setChatStarted: function() {
+				$('.cx-widget .cx-system span.cx-message-text:first:contains("Chat Started")').html('<div class="animated-circle"><div class="circle1 child-animated-circle"></div><div class="circle2 child-animated-circle"></div><div class="circle3 child-animated-circle"></div><div class="circle4 child-animated-circle"></div><div class="circle5 child-animated-circle"></div><div class="circle6 child-animated-circle"></div><div class="circle7 child-animated-circle"></div><div class="circle8 child-animated-circle"></div><div class="circle9 child-animated-circle"></div><div class="circle10 child-animated-circle"></div><div class="circle11 child-animated-circle"></div><div class="circle12 child-animated-circle"></div></div>Searching for an available agent').addClass('cx-system-message');
+			},
+			setChatStartedSystemMessage: function() {
+				var size = $('.cx-widget .cx-system span.cx-message-text:contains(" Connected")').length;
+
+				if (size != 0) {
+					$('.cx-widget span.cx-system-message').parent().parent().first().remove();
+				}
+			},
+			setChatStartedTransferSystemMessage: function() {
+				var size = $('.cx-widget .cx-system span.cx-message-text:contains(" Connected")').length;
+
+				if (size != 0) {
+					$('.cx-widget span.cx-system-message').parent().parent().remove();
+				}
+			},
+			setChatTitle: function() {
+				var title = window._genesys.widgets.extend.UI.chatTitle[window._genesys.widgets.extend.State.core.hasActiveBot ? 1 : 0];
+				var size = $('.cx-webchat-counter').length;
+
+				if (size != 0) {
+					$('.cx-webchat-counter').before('<span id="cx-window-title"></span>');
+					$('#cx-window-title').text(title);				
+				}
+				else {
+					$('.cx-title').text(title);
+				}
+			},		
+			setChatTransfer: function() {
+				var size = $('.cx-widget .cx-system span.cx-message-text:contains("*#")').length;
+
+				if (size != 0) {
+					$('.cx-widget .cx-system span.cx-message-text:contains("*#")').html('<div class="animated-circle"><div class="circle1 child-animated-circle"></div><div class="circle2 child-animated-circle"></div><div class="circle3 child-animated-circle"></div><div class="circle4 child-animated-circle"></div><div class="circle5 child-animated-circle"></div><div class="circle6 child-animated-circle"></div><div class="circle7 child-animated-circle"></div><div class="circle8 child-animated-circle"></div><div class="circle9 child-animated-circle"></div><div class="circle10 child-animated-circle"></div><div class="circle11 child-animated-circle"></div><div class="circle12 child-animated-circle"></div></div>' + $('.cx-widget .cx-system span.cx-message-text:contains("*#")').html().replace('*#','')).addClass('cx-system-message');	
+				}
+
+				$('.cx-widget .cx-system span.cx-message-text:contains("Transferring. Please wait...")').html('<div class="animated-circle"><div class="circle1 child-animated-circle"></div><div class="circle2 child-animated-circle"></div><div class="circle3 child-animated-circle"></div><div class="circle4 child-animated-circle"></div><div class="circle5 child-animated-circle"></div><div class="circle6 child-animated-circle"></div><div class="circle7 child-animated-circle"></div><div class="circle8 child-animated-circle"></div><div class="circle9 child-animated-circle"></div><div class="circle10 child-animated-circle"></div><div class="circle11 child-animated-circle"></div><div class="circle12 child-animated-circle"></div></div>Transferring. Please wait...').addClass('cx-system-message');
+			},
+			setChatTyping: function() {
+				$('.cx-widget .cx-message.cx-agent-typing.cx-them span.cx-message-text:first:contains("...")').html('<span class="animated-dot"><span class="dot1"></span><span class="dot2"></span><span class="dot3"></span></span>');
+			},
+			setHeaderUnderline: function() {
+				var size = $('.cx-widget .underline').length;
+
+				if (size == 0) {
+					$('<hr class="underline purple-bg">').appendTo('.cx-title');
+				}
+			},
+			setInteractAddResizeDrag: function() {
+				$('.cx-widget .cx-common-container.cx-webchat').addClass('cx-interact-resize-drag');
+			},
+			setInteractRemoveResizeDrag: function() {
+				$('.cx-widget .cx-common-container.cx-webchat').removeClass('cx-interact-resize-drag');
+			},
+			setInteractReset: function() {
+				$('.cx-widget .cx-common-container.cx-webchat').css({'height': ''});
+				$('.cx-widget .cx-common-container.cx-webchat').css({'width': '360px'});
+			},		
+			setInteractHeight: function() {
+				if (document.cookie.indexOf(window._genesys.widgets.extend.State.height) > -1) {
+					var height = window._genesys.widgets.common.getCookie(window._genesys.widgets.extend.State.height);
+
+					$('.cx-widget .cx-common-container.cx-webchat').css({'height': height + 'px'});
+					$('.cx-transcript').css({'height': 362 + (height - 500) + 'px'});
+				}
+			},
+			setInteractTranscript: function(height) {
+				$('.cx-transcript').css({'height': 362 + height + 'px'});
+			},
+			setInteractWidth: function() {
+				if (document.cookie.indexOf(window._genesys.widgets.extend.State.width) > -1) {
+					var width = window._genesys.widgets.common.getCookie(window._genesys.widgets.extend.State.width);
+
+					$('.cx-widget .cx-common-container.cx-webchat').css({'width': width + 'px'});
+				}
+			},
+			setOrientation: function(orientation) {
+				this.orientation = orientation;
+			},
+			setTranscript: function() {
+				if ($('.cx-widget .cx-transcript').css('display') != 'none') {
+					$('<div id="cx-transcript">'+window._genesys.widgets.extend.UI.transcriptInfo+'</div>').appendTo('.cx-input-container');
+
+					if (window._genesys.widgets.extend.UI.core.isMobile) {
+						window._genesys.widgets.extend.UI.core.resizeTrigger();
+					}
+				}
+			},
+			setTransferToAgentStartedMessage: function() {
+				var size = $('.cx-widget .cx-message.cx-you span.cx-message-text:contains("'+window._genesys.widgets.extend.UI.chatToAgentMessage+'")').length;
+
+				if (size != 0) {
+					$('.cx-widget .cx-message.cx-you span.cx-message-text:contains("'+window._genesys.widgets.extend.UI.chatToAgentMessage+'")').parent().addClass('orange-bg');
+				}
+			},
+			setTransferToAgentStartedUnit: function() {
+				var size = $('.cx-widget .cx-message.cx-you span.cx-message-text:contains("'+window._genesys.widgets.extend.UI.chatToAgentUnit+'")').length;
+
+				if (size != 0) {
+					$('.cx-widget .cx-message.cx-you span.cx-message-text:contains("'+window._genesys.widgets.extend.UI.chatToAgentUnit+'")').parent().addClass('orange-bg');
+				}
+			},
+			toTitleCase: function(data) {
+				if (data != undefined) {
+					var i;
+					var input = data.toLowerCase().split(' ');
+					var l = input.length;
+
+					for (i = 0; i < l; i++) {
+						input[i] = input[i].charAt(0).toUpperCase() + input[i].slice(1);
+					}
+
+					return input.join(' ');
+				}
+			}
+		};
+
+		UI.registerCommand('clicked', function(e) {
+			e.deferred.resolve();
+			UI.republish('clicked');
+		});
+
+		UI.registerCommand('sendMessage', function(e) {
+			var message = {};
+
+			if (e.data.message != undefined) {
+				if (!window._genesys.widgets.extend.UI.core.hasSendMessageProgress) {
+					message = {
+						message: e.data.message
+					}
+
+					UI.command('WebChatService.sendMessage', message);
+					window._genesys.widgets.extend.UI.core.hasSendMessageProgress = true;
+				}
+			}
+
+			e.deferred.resolve();
+			UI.republish('sendMessage');			
+		});
+
+		UI.subscribe('ChannelSelector.closed', function(e) {
+			if (!window._genesys.widgets.extend.UI.core.isWebChatFormOpen) {
+				window._genesys.widgets.extend.UI.core.setBodyClose();
+			}
+		});
+
+		UI.subscribe('ChannelSelector.opened', function(e) {
+			window._genesys.widgets.extend.UI.core.setBodyOpen();
+			window._genesys.widgets.extend.UI.core.setChannelSelectorDescription();
+		});
+
+		UI.subscribe('ChatDeflector.closed', function(e) {
+			window._genesys.widgets.extend.UI.core.setBodyClose();
+		});
+
+		UI.subscribe('ChatDeflector.opened', function(e) {
+			window._genesys.widgets.extend.UI.core.setBodyOpen();
+			UI.command('UI.clicked');
+		});
+
+		UI.subscribe('ChatStatus.closed', function(e) {
+			window._genesys.widgets.extend.UI.core.setBodyClose();
+		});
+
+		UI.subscribe('ChatStatus.opened', function(e) {
+			window._genesys.widgets.extend.UI.core.setBodyOpen();
+		});
+
+		UI.subscribe('Floater.ready', function(e) {
+			UI.command('Floater.open');
+		});
+
+		UI.subscribe('RichMedia.click', function(e) {
+			if (e.data.actions.url != undefined) {
+				if (e.data.actions.url.indexOf(window._genesys.widgets.extend.UI.domain) > -1 && e.data.target == 'button' || e.data.target == 'list-item') {
+					var minimise = {
+						minimized: true
+					};
+
+					if (!window._genesys.widgets.extend.State.core.isMinimised) {
+						UI.command('WebChat.minimize', minimise);
+						gwc_environment.debug && console.log('document.click.action.link, WebChat.minimize', minimise);
+					}
+				}
+			}		
+		});
+
+		UI.subscribe('ServiceStatus.closed', function(e) {
+			window._genesys.widgets.extend.UI.core.setBodyClose();
+		});
+
+		UI.subscribe('ServiceStatus.opened', function(e) {
+			window._genesys.widgets.extend.UI.core.setBodyOpen();
+		});
+
+		UI.subscribe('WebChat.closed', function(e) {
+			window._genesys.widgets.extend.UI.core.setBodyClose();
+			window._genesys.widgets.extend.UI.core.errorCount = 0;
+		});
+
+		UI.subscribe('WebChat.minimized', function(e) {
+			window._genesys.widgets.extend.State.core.getMinimiseState();
+			window._genesys.widgets.extend.UI.core.setBodyClose();
+
+			if (!window._genesys.widgets.extend.UI.core.isMobile) {
+				window._genesys.widgets.extend.UI.core.setInteractRemoveResizeDrag();
+				window._genesys.widgets.extend.UI.core.setInteractReset();
+			}
+		});
+
+		UI.subscribe('WebChat.unminimized', function(e) {
+			window._genesys.widgets.extend.State.core.getMinimiseState();
+			window._genesys.widgets.extend.UI.core.setBodyOpen();
+
+			if (!window._genesys.widgets.extend.UI.core.isMobile) {
+				window._genesys.widgets.extend.UI.core.setInteractAddResizeDrag();
+				window._genesys.widgets.extend.UI.core.setInteractHeight();
+				window._genesys.widgets.extend.UI.core.setInteractWidth();
+				window._genesys.widgets.extend.UI.core.checkWindowSize();
+				window._genesys.widgets.extend.UI.core.resizeTrigger();
+			}
+		});
+
+		UI.subscribe('WebChat.messageAdded', function(e) {
+			window._genesys.widgets.extend.UI.core.setChatFormCloseShow();
+			window._genesys.widgets.extend.UI.core.setChatFormMinimiseUnreset();
+			window._genesys.widgets.extend.UI.core.setChatTransfer();
+
+			if (window._genesys.widgets.extend.State.core.hasActiveBot || window._genesys.widgets.extend.State.core.hadBotHistory) {
+				window._genesys.widgets.extend.UI.core.setChatFormBotMessage();
+				window._genesys.widgets.extend.UI.core.setChatFormBotName();
+				window._genesys.widgets.extend.UI.core.setChatFormBotTime();
+				window._genesys.widgets.extend.UI.core.setChatFormAnonymousCustomerTime();
+				window._genesys.widgets.extend.UI.core.setChatFormAuthenticatedCustomerName();
+				window._genesys.widgets.extend.UI.core.setChatFormAuthenticatedCustomerTime();
+				window._genesys.widgets.extend.UI.core.resizeTrigger();
+
+				window._genesys.widgets.extend.UI.core.setBotChatStarted();
+
+				window._genesys.widgets.extend.UI.core.setTransferToAgentStartedUnit();
+			}
+			else {
+				window._genesys.widgets.extend.UI.core.setChatStarted();
+			}
+
+			if (!window._genesys.widgets.extend.State.core.hasActiveBot) {
+				window._genesys.widgets.extend.UI.core.setChatFormMenuHide();
+			}
+
+			window._genesys.widgets.extend.UI.core.setChatFormNameShow();
+			window._genesys.widgets.extend.UI.core.setChatFormTimeShow();
+			window._genesys.widgets.extend.UI.core.setBotChatTransferToAgentMessage();
+
+			if (e.data.data.type == 'Agent' || e.data.data.type == 'External') {
+				if (window._genesys.widgets.extend.UI.core.isMobile) {
+					if (!window._genesys.widgets.extend.State.core.isMinimised) {
+						window._genesys.widgets.extend.UI.core.focusOnLastMessage();
+					}
+				}
+			}
+
+			window._genesys.widgets.extend.UI.core.setChatMessageGroup();
+			window._genesys.widgets.extend.UI.core.setChatMessageOutage();
+			window._genesys.widgets.extend.UI.core.setChatFormAnonymousCustomerName(); //
+
+			if (!window._genesys.widgets.extend.UI.core.isMobile) {
+				window._genesys.widgets.extend.UI.core.scrollToBottomOfTranscript();
+			}
+
+			if (!window._genesys.widgets.extend.UI.core.isLoading) {
+				window._genesys.widgets.extend.UI.core.setChatFormEnableInputFocus();
+			}
+		});
+
+		UI.subscribe('WebChatService.messageReceived', function(e) {
+			var i;
+			var l = e.data.messages.length;
+			window._genesys.widgets.extend.UI.core.hasSendMessageProgress = false;
+
+			gwc_environment.debug && console.log('WebChatService.messageReceived', e, e.data, e.data.messages);
+
+			if (e.data.messages) for (i = 0; i < l; i++) {
+				gwc_environment.debug && console.log('WebChatService.messageReceived['+i+']', e.data.messages[i]);
+
+				if (e.data.messages[i].from.type == 'External' && e.data.messages[i].type == 'CustomNotice' && e.data.messages[i].text == 'switching from bot to real agent') {
+					window._genesys.widgets.extend.State.core.setBotHistory();
+					window._genesys.widgets.extend.State.core.removeBotState();
+
+					if (!window._genesys.widgets.extend.State.core.hasActiveBot) {
+						window._genesys.widgets.extend.UI.core.removeBotChatCharacterDescription();
+						window._genesys.widgets.extend.UI.core.removeBotChatPrivacyPolicy();
+						window._genesys.widgets.extend.UI.core.removeCharacterCount();
+						window._genesys.widgets.extend.UI.core.setChatCharacterLimit();
+						window._genesys.widgets.extend.UI.core.setTranscript();
+					}
+
+					window._genesys.widgets.extend.UI.core.setChatTitle();
+					window._genesys.widgets.extend.UI.core.setHeaderUnderline();
+				}
+
+				if (e.data.messages[i].from.type == 'Agent' && e.data.messages[i].type == 'Message' && e.data.messages[i].text == 'Before I transfer you, can you please tell me your name?' || e.data.messages[i].from.type == 'Agent' && e.data.messages[i].type == 'Message' && e.data.messages[i].text == 'Can I have your email address so I can send you a transcript of our chat?' || e.data.messages[i].from.type == 'Agent' && e.data.messages[i].type == 'Message' && e.data.messages[i].text == 'Uh oh, that\'s not a valid email address. Can you please check it\'s correct and try again?' || e.data.messages[i].from.type == 'Agent' && e.data.messages[i].type == 'Message' && e.data.messages[i].text == 'The email you\'ve entered is on our system. To speed up the chat, please log into MySpark by clicking on the link below. To continue without logging on, select Continue to Live Chat.') {
+					window._genesys.widgets.extend.UI.core.isUserInputRequired = true;
+				}
+
+				if (window._genesys.widgets.extend.UI.core.isUserInputRequired && e.data.messages[i].from.type == 'Client' && e.data.messages[i].from.name == window._genesys.widgets.extend.Bot.clientFirstName + ' ' + window._genesys.widgets.extend.Bot.clientLastName && e.data.messages[i].type == 'Message' || window._genesys.widgets.extend.UI.core.isUserInputRequired && e.data.messages[i].from.type == 'Client' && e.data.messages[i].from.name != window._genesys.widgets.extend.Bot.clientFirstName + ' ' + window._genesys.widgets.extend.Bot.clientLastName && e.data.messages[i].type == 'Message' && window._genesys.widgets.extend.State.core.hasActiveBot) {
+					window._genesys.widgets.extend.UI.core.isUserInputRequired = false;
+					window._genesys.widgets.extend.UI.core.setChatFormEnableInput();
+				}
+
+				if (e.data.messages[i].from.type == 'Client' && e.data.messages[i].from.name == window._genesys.widgets.extend.Bot.clientFirstName + ' ' + window._genesys.widgets.extend.Bot.clientLastName && e.data.messages[i].type == 'Message') {
+					window._genesys.widgets.extend.UI.core.setChatFormActionText();
+				}
+
+				if (e.data.messages[i].from.type == 'Agent' && e.data.messages[i].isTyping && e.data.messages[i].text == 'user is typing' && e.data.messages[i].type == 'TypingStarted') {
+					window._genesys.widgets.extend.UI.core.setChatTyping();
+				}
+
+				if (e.data.messages[i].from.type == 'Agent' && e.data.messages[i].type == 'ParticipantJoined') {
+					if (window._genesys.widgets.extend.State.core.hasActiveBot) {
+						window._genesys.widgets.extend.UI.core.setBotChatLoadingHide();
+					}
+				}
+			}
+		});
+
+		UI.subscribe('WebChat.opened', function(e) {
+			window._genesys.widgets.extend.UI.core.setBodyOpen();
+			window._genesys.widgets.extend.UI.core.setChatTitle();
+			window._genesys.widgets.extend.UI.core.setChatTyping();
+
+			// Refresh/Navigate
+			window._genesys.widgets.extend.UI.core.setHeaderUnderline();
+			window._genesys.widgets.extend.UI.core.setChatFormUnderline();
+			window._genesys.widgets.extend.UI.core.setChatFormCloseShow();
+			window._genesys.widgets.extend.UI.core.setChatFormMinimiseUnreset();
+			window._genesys.widgets.extend.UI.core.setChatMessageOutage();
+			window._genesys.widgets.extend.UI.core.setChatTransfer();
+			window._genesys.widgets.extend.UI.core.setBotChatTransferToAgentMessage();
+
+			if (window._genesys.widgets.extend.State.core.hasActiveBot || window._genesys.widgets.extend.State.core.hadBotHistory) {
+				window._genesys.widgets.extend.UI.core.setChatFormBotMessage();
+				window._genesys.widgets.extend.UI.core.setChatFormBotName();
+				window._genesys.widgets.extend.UI.core.setChatFormBotTime();
+				window._genesys.widgets.extend.UI.core.setChatFormAnonymousCustomerTime();
+				window._genesys.widgets.extend.UI.core.setChatFormAuthenticatedCustomerName();
+				window._genesys.widgets.extend.UI.core.setChatFormAuthenticatedCustomerTime();
+				window._genesys.widgets.extend.UI.core.resizeTrigger();
+
+				window._genesys.widgets.extend.UI.core.setBotChatStarted();
+				window._genesys.widgets.extend.UI.core.setBotChatStartedSystemMessage();
+				window._genesys.widgets.extend.UI.core.setChatStartedTransferSystemMessage();
+
+				window._genesys.widgets.extend.UI.core.setTransferToAgentStartedMessage();
+			}
+			else {
+				window._genesys.widgets.extend.UI.core.setChatStarted();
+				window._genesys.widgets.extend.UI.core.setChatStartedSystemMessage();
+				window._genesys.widgets.extend.UI.core.setChatRequestedJoined();
+			}
+
+			if (!window._genesys.widgets.extend.State.core.hasActiveBot) {
+				window._genesys.widgets.extend.UI.core.removeBotChatCharacterDescription();
+				window._genesys.widgets.extend.UI.core.removeBotChatPrivacyPolicy();	
+				window._genesys.widgets.extend.UI.core.removeCharacterCount();
+				window._genesys.widgets.extend.UI.core.setChatCharacterLimit();
+				window._genesys.widgets.extend.UI.core.setChatFormMenuHide();
+				window._genesys.widgets.extend.UI.core.setChatFormNameShow();
+				window._genesys.widgets.extend.UI.core.setChatFormTimeShow();
+				window._genesys.widgets.extend.UI.core.setTranscript();
+			}
+			else {
+				window._genesys.widgets.extend.UI.core.setBotChatCharacterDescription();
+				window._genesys.widgets.extend.UI.core.setBotChatPrivacyPolicy();
+
+				if (!window._genesys.widgets.extend.Bot.closeOption) {
+					window._genesys.widgets.extend.UI.core.setChatFormCloseHide();
+					window._genesys.widgets.extend.UI.core.setChatFormMinimiseReset();
+				}
+			}
+
+			window._genesys.widgets.extend.UI.core.setChatMessageGroup();
+			window._genesys.widgets.extend.UI.core.setChatFormAnonymousCustomerName(); //
+
+			if (!window._genesys.widgets.extend.UI.core.isMobile) {
+				window._genesys.widgets.extend.UI.core.setInteractAddResizeDrag();
+				window._genesys.widgets.extend.UI.core.setInteractHeight();
+				window._genesys.widgets.extend.UI.core.setInteractWidth();
+				window._genesys.widgets.extend.UI.core.checkWindowSize();
+				window._genesys.widgets.extend.UI.core.resizeTrigger();
+
+				window._genesys.widgets.extend.UI.core.scrollToBottomOfTranscript();
+			}
+		});
+
+		UI.subscribe('WebChatService.agentConnected', function(e) {
+			if (window._genesys.widgets.extend.State.core.hasActiveBot || window._genesys.widgets.extend.State.core.hadBotHistory) {
+				window._genesys.widgets.extend.UI.core.setBotChatSystemMessage();
+			}
+			else {
+				window._genesys.widgets.extend.UI.core.setChatRequested();
+			}
+		});
+
+		UI.subscribe('WebChatService.ended', function(e) {
+			if (window._genesys.widgets.extend.State.core.hasActiveBot || window._genesys.widgets.extend.State.core.hadBotHistory) {
+				window._genesys.widgets.extend.UI.core.setBotChatSystemMessage();
+			}
+			else {
+				window._genesys.widgets.extend.UI.core.setChatRequested();
+			}
+			window._genesys.widgets.extend.State.core.removeBotState();
+			window._genesys.widgets.extend.State.core.removeBotHistory();
+			window._genesys.widgets.extend.State.core.removeSessionState();
+			window._genesys.widgets.extend.State.core.removeInteractHeight();
+			window._genesys.widgets.extend.State.core.removeInteractWidth();
+
+			window._genesys.widgets.extend.UI.core.setChatFormCloseErrorReset();
+		});
+
+		UI.subscribe('WebChatService.error', function(e) {
+			window._genesys.widgets.extend.UI.core.checkErrorMessage();
+		});
+
+		UI.subscribe('WebChatService.started', function(e) {
+			var data = {};
+
+			if (!window._genesys.widgets.extend.State.core.hasActiveBot) {
+				window._genesys.widgets.extend.UI.core.setChatFormNameShow();
+				window._genesys.widgets.extend.UI.core.setChatFormTimeShow();
+				window._genesys.widgets.extend.UI.core.setTranscript();
+
+				data = {
+					Bot: false
+				}
+
+				gwc_environment.debug && console.log('UserData', data);
+				UI.command('WebChatService.updateUserData', data);
+			}
+			else {
+				window._genesys.widgets.extend.UI.core.setBotChatLoadingShow();
+
+				if (!window._genesys.widgets.extend.Bot.closeOption) {
+					window._genesys.widgets.extend.UI.core.setChatFormCloseHide();
+					window._genesys.widgets.extend.UI.core.setChatFormMinimiseReset();
+				}
+			}
+
+			window._genesys.widgets.extend.State.core.getSessionState();
+			window._genesys.widgets.extend.Analytics.core.setSessionChatID();
+			window._genesys.widgets.extend.UI.core.errorCount = 0;
+
+			if (!window._genesys.widgets.extend.UI.core.isMobile) {
+				window._genesys.widgets.extend.UI.core.setInteractTranscript(0);
+				window._genesys.widgets.extend.UI.core.setInteractAddResizeDrag();
+				window._genesys.widgets.extend.UI.core.setInteractHeight();
+				window._genesys.widgets.extend.UI.core.setInteractWidth();
+				window._genesys.widgets.extend.UI.core.resizeTrigger();
+			}
+		});
+
+		UI.subscribe('WebChatService.restoreTimeout', function(e) {
+			window._genesys.widgets.extend.UI.core.isRestoreTimeout = true;
+		});
+
+		UI.subscribe('Toaster.opened', function(e) {
+			if (window._genesys.widgets.extend.UI.core.isRestoreTimeout) {
+				window._genesys.widgets.extend.UI.core.closeTimeOutToaster();
+				window._genesys.widgets.extend.UI.core.isRestoreTimeout = false;
+			}
+		});
+
+		UI.subscribe('UI.clicked', function(e) {
+			window._genesys.widgets.extend.UI.core.maximiseActiveChat();
+
+			if (!window._genesys.widgets.extend.State.core.isFloater) {
+				window._genesys.widgets.extend.UI.core.sendMessageToBot();
+			}
+
+			window._genesys.widgets.extend.State.core.isFloater = false;
+			window._genesys.widgets.extend.UI.core.maximiseActiveForm();
+		});
+
+		(function() {
+			var newHeight = 0;
+			var newWidth = 0;
+
+			interact('.cx-interact-resize-drag').resizable({
+				edges: {
+					left: true,
+					right: false,
+					bottom: false,
+					top: true
+				},
+				restrictEdges: {
+				  outer: 'self',
+				  endOnly: true,
+				},
+				restrictSize: {
+					min: {
+						width: 360,
+						height: 500
+					},
+					max: {
+						width: window.innerWidth * 0.9,
+						height: window.innerHeight * 0.95
+					},
+				},
+				inertia: true,
+			}).on('resizemove', function (event) {
+				var target = event.target;
+
+				target.style.width  = event.rect.width + 'px';
+				target.style.height = event.rect.height + 'px';
+
+				newHeight = event.rect.height;
+				newWidth = event.rect.width;
+				heightDiff = newHeight - 500;
+
+				window._genesys.widgets.extend.State.core.setInteractHeight(event.rect.height);
+				window._genesys.widgets.extend.State.core.setInteractWidth(event.rect.width);
+
+				window._genesys.widgets.extend.UI.core.setInteractTranscript(heightDiff);
+				window._genesys.widgets.extend.UI.core.resizeTrigger();
+			});
+		})();
+
+		$(function() {
+			$(window).on('orientationchange', function() {
+				window._genesys.widgets.extend.UI.core.setOrientation(window._genesys.widgets.extend.UI.core.getOrientation());
+				window._genesys.widgets.extend.UI.core.setChannelSelectorOrientation();
+			});
+
+			$(document).on('click', '#cx-floater-icon-chat', function() {
+				window._genesys.widgets.extend.State.core.isFloater = true;
+				UI.command('ChannelSelector.open');
+
+				return false;
+			});
+
+			$(document).on('click', '.gwc-chat-bot', function() {
+				gwc.getChatBot();
+
+				return false;
+			});
+
+			$(document).on('click', '.gwc-chat-live', function() {
+				gwc.getChatLive();
+
+				return false;
+			});
+
+			/*!
+			 * Deprecated
+			 */
+			$(document).on('click', '.cx-widget .cx-message-text .link-item, .cx-widget .cx-message-text .btn.btn-primary, .cx-widget ul.gwc-action-list li.gwc-action-item a[target="_blank"], .cx-widget ul.gwc-action-list li.gwc-action-item a[href*="spark"]', function() {
+				var minimise = {
+					minimized: true
+				};
+
+				if (!window._genesys.widgets.extend.State.core.isMinimised) {
+					UI.command('WebChat.minimize', minimise);
+					gwc_environment.debug && console.log('document.click.action.link, WebChat.minimize', minimise);
+				}
+			});
+
+			$(document).on('click', '.cx-widget.cx-minimized .cx-titlebar', function() {
+				UI.command('WebChat.minimize');
+				gwc_environment.debug && console.log('document.click.titlebar, WebChat.minimize', 'toggle');
+			});
+
+			$(document).on('button[data-message="ChatFormSubmit"]').click(function() {
+				if ($('#cx_webchat_form_firstname').hasClass('cx-error')) {
+					$('#cx_webchat_form_firstname').parent().addClass('cx-error');
+					$('.cx-webchat .cx-form table').find('label[for="cx_webchat_form_firstname"]').parent().addClass('cx-error');
+				}
+				else {
+					$('#cx_webchat_form_firstname').parent().removeClass('cx-error');
+					$('.cx-webchat .cx-form table').find('label[for="cx_webchat_form_firstname"]').parent().removeClass('cx-error');
+				}
+				if ($('#cx_webchat_form_lastname').hasClass('cx-error')) {
+					$('#cx_webchat_form_lastname').parent().addClass('cx-error');
+					$('.cx-webchat .cx-form table').find('label[for="cx_webchat_form_lastname"]').parent().addClass('cx-error');
+				}
+				else {
+					$('#cx_webchat_form_lastname').parent().removeClass('cx-error');
+					$('.cx-webchat .cx-form table').find('label[for="cx_webchat_form_lastname"]').parent().removeClass('cx-error');
+				}
+				if ($('#cx_webchat_form_email').hasClass('cx-error')) {
+					$('#cx_webchat_form_email').parent().addClass('cx-error');
+					$('.cx-webchat .cx-form table').find('label[for="cx_webchat_form_email"]').parent().addClass('cx-error');
+				}
+				else {
+					$('#cx_webchat_form_email').parent().removeClass('cx-error');
+					$('.cx-webchat .cx-form table').find('label[for="cx_webchat_form_email"]').parent().removeClass('cx-error');
+				}
+			});
+
+			$(document).on('click', '.cx-widget #gwc-bot-outage-message a[href="#"].gwc-action-text, .cx-widget .cx-privacy-policy a[href="#"].gwc-action-text', function() {
+				var messageData = $(this).attr('data-message');
+				var messageText = $(this).text();
+				var message = {};
+
+				messageData != '' ? message = { message: messageData } : message = { message: messageText };
+
+				UI.command('WebChatService.sendMessage', message);
+
+				return false;
+			});
+
+			/*!
+			 * Deprecated
+			 */
+			$(document).on('click', '.cx-widget ul.gwc-action-list li.gwc-action-item a[href="#"]', function() {
+				var messageID = $(this).attr('id');
+				var messageText = $(this).text();
+				var message = {
+					message: messageText
+				}
+
+				UI.command('WebChatService.sendMessage', message);
+				$(this).attr('href', 'javascript:void(0);');
+
+				return false;
+			});
+
+			$(document).on('click', '.cx-widget.cx-webchat .cx-icon.cx-button-close', function() {
+				$('.cx-widget .cx-alert.cx-chat-end').addClass('hidden');
+				$('.cx-widget [data-message="ChatEndConfirm"]').trigger('click');
+			});
+
+			$(document).on('keyup', '.cx-message-input', function(e) {
+				var message = $('.cx-message-input').val();
+				
+				if (message != '' && message.trim().length != 0) {
+					window._genesys.widgets.extend.UI.core.inputMessage = message;
+				}
+
+				if (e.which == 13) {
+					if (window._genesys.widgets.extend.UI.core.isUserInputRequired) {
+						if (window._genesys.widgets.extend.UI.core.inputMessage != '' && window._genesys.widgets.extend.UI.core.inputMessage.trim().length != 0) {
+							window._genesys.widgets.extend.UI.core.setChatFormDisableInput();
+						}
+					}
+					window._genesys.widgets.extend.UI.core.inputMessage = '';
+				}
+			});
+		});
+
+		UI.ready();
+	}
+};
+
+
+window._genesys.widgets.extensions['CXSpeechStorm'] = function($, CXBus, Common) {
+	var speechStormPlugin = CXBus.registerPlugin('CXSpeechStorm'),
+		isOpen = false,
+		isMobileMode = false,
+		isReserved = false,
+		sTheme = '',
+		speechStormOptions = {
+			baseURL : '',
+			domain: window.location.protocol + '//' + window.location.host
+		},
+		methods = {
+			open: function(e) {
+				var sAppToken = e.data.appToken,
+					sChatMessage = e.data.chatMessage,
+					sChatInteractionID = e.data.chatInteractionID,
+					sChatUserID = e.data.chatUserID,
+					sChatSecureKey = e.data.chatSecureKey;
+				var sAppTokenCharWhiteList = /[A-Za-z0-9-_+]/;
+				var bIsAllCharValid = sAppTokenCharWhiteList.test(sAppToken);
+
+				if (! sAppToken || ! bIsAllCharValid) {
+					e.deferred.reject('The \'appToken\' parameter must be passed to calls to the \'open\' command. speechStormPlugin has ignored your command.');
+					return;
+				}
+
+				if (window._genesys.widgets.speechstorm) {
+					if (window._genesys.widgets.speechstorm.baseURL) {
+						speechStormOptions.baseURL = window._genesys.widgets.speechstorm.baseURL;
+					}
+					if (window._genesys.widgets.speechstorm.domain) {
+						speechStormOptions.domain = window._genesys.widgets.speechstorm.domain;
+					}
+				}
+
+				if (! speechStormOptions.baseURL) {
+					speechStormOptions.baseURL = speechStormOptions.domain;
+				}
+
+				var sURL = speechStormOptions.baseURL +
+						   '/fish-messaging/go/' +
+						   sAppToken +
+						   '?domain=' + encodeURIComponent(speechStormOptions.domain);
+
+				if (sChatMessage) {
+					sURL += '&chatMessage=' + encodeURIComponent(sChatMessage) +
+							'?chatInteractionID=' + encodeURIComponent(sChatInteractionID) + // Update
+							'&chatSecureKey=' + encodeURIComponent(sChatSecureKey) +
+							'&chatUserID=' + encodeURIComponent(sChatUserID);
+				}
+
+				speechStormPlugin.command('Toaster.open', {
+					type: 'generic',
+					title: '',
+					body: '<iframe id="speechstorm_webivr_iframe" style="border:none" width="100%" height="418px" src="' + sURL + '"></iframe>',
+					controls: 'close', 
+					buttons: {},
+					immutable: false
+				}).done(function(e2) {
+					if (e2.html) {
+						e2.html.addClass('cx-speechstorm');
+
+						if (isMobileMode) {
+							e2.html.addClass('cx-mobile');
+						}
+
+						e2.html.find('.cx-button-close').click(function() {
+							speechStormPlugin.command('close');
+						});
+
+						e.deferred.resolve();
+						isOpen = true;
+						speechStormPlugin.publish('opened');
+					}
+				});
+			},
+			close: function(deferred) {
+				var webIVRFrame = document.getElementById('speechstorm_webivr_iframe');
+
+				if (webIVRFrame) {
+					gwc_environment.debug && console.log('Notifying WebIVR that the session has ended.');
+					webIVRFrame.contentWindow.postMessage('speechstorm:hangup', speechStormOptions.baseURL);
+					isOpen = false;
+
+					deferred.resolve();
+					speechStormPlugin.command('Toaster.close');                    
+					speechStormPlugin.publish('closed');
+				}
+			},
+			handleWebIVRStatusUpdate: function(msg_p) {
+				var sExpectedOrigin = (speechStormOptions.baseURL ? speechStormOptions.baseURL : speechStormOptions.domain);
+				var MESSAGE_PREFIX = 'microapp:progress:';
+
+				gwc_environment.debug && console.log('Received message [' + msg_p.data + '] from domain [' + msg_p.origin + ']');
+
+				if (msg_p.origin !== sExpectedOrigin) {
+					gwc_environment.debug && console.log('Ignoring message because its origin does not match the expected origin (' + sExpectedOrigin + ').  Message will be ignored.');
+					return;
+				}
+
+				if (/^microapp:progress:block:/.test(msg_p.data)) {
+					var sProgressDetailsDescription = msg_p.data.substring(MESSAGE_PREFIX.length);
+
+					gwc_environment.debug && console.log('Got output progress: ' + msg_p.data);
+					speechStormPlugin.publish('progress', { milestone: sProgressDetailsDescription });
+				}
+				else if (/^microapp:progress:ended$/.test(msg_p.data)) {
+					gwc_environment.debug && console.log('Got output progress: ' + msg_p.data);
+					speechStormPlugin.publish('ended');
+				}
+				else if ('speechstorm:closed' === msg_p.data) {
+					//
+				}
+				else {
+					gwc_environment.debug && console.log('Received unknown postMessage: ' + msg_p.data);
+				}
+			},
+			getCookieValue : function (sKey_p) {
+                var cookieArray = document.cookie.split(';');
+				var i;
+				var l = cookieArray.length;	
+
+				sKey_p += '=';
+
+				for (i = 0; i < l; i++) {
+					var sCookie = cookieArray[i];
+					sCookie = sCookie.replace(/^ +/, '');
+
+					if (sCookie.substring(0, sKey_p.length) == sKey_p) {
+						return sCookie.substring(sKey_p.length);
+					}
+				}
+
+				return undefined;
+			}
+		};
+
+	if (speechStormPlugin) {
+		speechStormPlugin.registerEvents(['opened', 'ready', 'closed', 'progress', 'ended']);
+		speechStormPlugin.republish('ready');
+	
+		speechStormPlugin.registerCommand('open', function(e) {
+			if (!isReserved || e.commander === isReserved || e.commander === 'cx.plugin.App') {
+				if (isOpen) {
+					speechStormPlugin.command('close').done(function() {
+						methods.open(e);
+					});
+				}
+				else {
+					methods.open(e);
+				}
+			}
+			else {
+				e.deferred.reject('speechStorm view is currently reserved');
+			}
+		});
+
+		speechStormPlugin.registerCommand('close', function(e) {
+			if (isOpen) {
+				if (!isReserved || e.commander === isReserved || e.commander === 'cx.plugin.App') {
+					isReserved = false;
+
+					if (e.data && e.data.immediately) {
+						methods.close();
+						e.deferred.resolve();
+					}
+					else {
+						methods.close(e.deferred);
+					}
+				}
+				else {
+					e.deferred.reject('SpeechStorm view is currently reserved');
+				}
+			}
+			else {
+				e.deferred.reject('SpeechStorm view is already closed');
+			}
+		});
+
+		speechStormPlugin.registerCommand('configure', function(e) {
+			if (e.data) {
+				if (typeof e.data.baseURL == 'string') {
+					speechStormOptions.baseURL = e.data.baseURL;
+				}
+				if (typeof e.data.domain == 'string') {
+					speechStormOptions.domain = e.data.domain;
+				}
+				e.deferred.resolve();
+			}
+			else {
+				e.deferred.reject('Invalid configuration');
+			}
+		});
+
+		speechStormPlugin.subscribe('App.ready', function(e) {
+			speechStormPlugin.command('App.getTheme').done(function(sNewTheme) {
+				sTheme = sNewTheme;
+			});
+		});
+
+		speechStormPlugin.subscribe('App.closeAll', function(e) {
+			speechStormPlugin.command('close');
+		});
+
+		speechStormPlugin.subscribe('App.mobileMode', function() {
+			isMobileMode = true;
+		});
+
+		speechStormPlugin.subscribe('WebChatService.ready', function() {
+			speechStormPlugin.command('WebChatService.registerPreProcessor', {
+				preprocessor: function(oMessage) {
+					gwc_environment.debug && console.log('CXSpeechStorm received a message from WebChatService');
+
+					if (oMessage.type && oMessage.text) {
+						if (oMessage.type === 'CustomNotice' || oMessage.type === 'Message') {
+							var PROTOCOL_PREFIX = 'microapp:';
+							var PROTOCOL_APP_PREFIX = 'microapp://app/';
+							var PROTOCOL_PROGRESS_PREFIX = 'microapp://progress:';
+
+							gwc_environment.debug && console.log('       ' + oMessage.text);
+
+							if (oMessage.text.indexOf(PROTOCOL_PREFIX) >= 0) {
+								if (oMessage.text.indexOf(PROTOCOL_APP_PREFIX) >= 0) {
+									var sUrlDetails = oMessage.text.substring(PROTOCOL_APP_PREFIX.length);
+									var sAppToken = sUrlDetails.split(/\//)[0];
+									var sChatInteractionID = methods.getCookieValue('_genesys.widgets.webchat.state.session'),
+										sKeysCookieJson = methods.getCookieValue('_genesys.widgets.webchat.state.keys');
+									
+									if (! (sChatInteractionID  &&  sKeysCookieJson)) {
+										gwc_environment.debug && console.log('Both \'session\' and \'keys\' cookies must be present if microapp is to be invoked from a chat message. Session was \'' + sChatInteractionID + '\' and keys were \'' + sKeysCookieJson + '\'.  CXSpeechStorm has ignored your command.');
+										return;
+									}
+
+									var keysCookie = JSON.parse(decodeURIComponent(sKeysCookieJson)),
+										params = {
+											appToken: sAppToken,
+											chatMessage: oMessage.text,
+											chatInteractionID : sChatInteractionID,
+											chatUserID : keysCookie.userId,
+											chatSecureKey : keysCookie.secureKey
+										};
+
+									speechStormPlugin.command('open', params).done(function(e) {
+										gwc_environment.debug && console.log('CXSpeechStorm successfully sent the WebIVR open request for app with token: ' + sAppToken);
+									}).fail(function(e) {
+										gwc_environment.debug && console.log('Error!  ' + e);
+									});
+								}
+								else if (oMessage.text.indexOf(PROTOCOL_PROGRESS_PREFIX) >= 0) {
+									var PROTOCOL_PROGRESS_BLOCK_PREFIX = 'microapp://progress:block:';
+									var PROTOCOL_PROGRESS_ENDED_PREFIX = 'microapp://progress:ended';
+									var PROTOCOL_PROGRESS_CLOSED_PREFIX = 'microapp://progress:closed';
+
+									if (oMessage.text.indexOf(PROTOCOL_PROGRESS_BLOCK_PREFIX) >= 0) {
+										var sProgressDetailsDescription = oMessage.text.substring(PROTOCOL_PROGRESS_PREFIX.length);
+
+										gwc_environment.debug && console.log('Got output progress: ' + oMessage.text);
+										speechStormPlugin.publish('progress', { milestone: sProgressDetailsDescription });
+									}
+									else if (oMessage.text.indexOf(PROTOCOL_PROGRESS_ENDED_PREFIX) >= 0) {
+										gwc_environment.debug && console.log('Got output progress: ' + oMessage.text);
+										speechStormPlugin.publish('ended');
+									}
+									else if (oMessage.text.indexOf(PROTOCOL_PROGRESS_CLOSED_PREFIX) >= 0) {
+										//
+									}
+									else {
+										gwc_environment.debug && console.log('Got output progress: ' + oMessage.text);
+									}
+								}
+
+								oMessage.text = '';
+								oMessage.type = 'CustomNotice';
+							}
+						}
+					}
+
+					return oMessage;
+				}
+			});
+		});
+
+		if (window.addEventListener) {
+			addEventListener('message', methods.handleWebIVRStatusUpdate, false);
+		}
+		else {
+			attachEvent('onmessage', methods.handleWebIVRStatusUpdate);
+		}
+
+		if (window._genesys && window._genesys && window._genesys.widgets && window._genesys.widgets.speechstorm) {
+			speechStormPlugin.command('configure', window._genesys.widgets.speechstorm);
+		}
+
+		if (typeof speechStormPlugin.ready == 'function') {
+			speechStormPlugin.ready();
+		}
+	}
+}

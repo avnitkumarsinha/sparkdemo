@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="40px" height="38px" viewBox="0 0 40 38" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 51.2 (57519) - http://www.bohemiancoding.com/sketch -->
+    <title>Solids/thanks</title>
+    <desc>Created with Sketch.</desc>
+    <defs>
+        <path d="M24.96,8.69333333 C24.32,6.34666667 22.1866667,3.89333333 22.1866667,3.89333333 C22.4,3.78666667 25.92,1.44 29.8666667,1.97333333 C35.2,2.72 38.72,5.92 39.68,10.5066667 C40.64,15.6266667 38.72,20.64 33.3866667,26.72 C28.9066667,31.7333333 20.9066667,37.4933333 20.48,37.8133333 L19.9466667,38.1333333 L19.4133333,37.8133333 C19.0933333,37.4933333 11.0933333,31.84 6.18666667,26.08 C-7.35522754e-16,19.04 -0.426666667,13.8133333 0.32,10.72 C1.06666667,7.73333333 3.30666667,2.72 10.6666667,2.08 C15.2533333,1.54666667 18.1333333,3.78666667 19.7333333,5.70666667 C21.3333333,7.73333333 21.9733333,9.86666667 21.9733333,9.97333333 L24.96,8.69333333 Z" id="path-1"></path>
+    </defs>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="Solids/thanks" transform="translate(0.000000, -1.000000)">
+            <mask id="mask-2" fill="white">
+                <use xlink:href="#path-1"></use>
+            </mask>
+            <use id="Mask" fill="#000000" fill-rule="nonzero" xlink:href="#path-1"></use>
+            <g id="Color/White" mask="url(#mask-2)" fill="#FFFFFF" fill-rule="evenodd">
+                <rect id="Rectangle-2" x="0" y="0" width="40" height="40"></rect>
+            </g>
+        </g>
+    </g>
+</svg>

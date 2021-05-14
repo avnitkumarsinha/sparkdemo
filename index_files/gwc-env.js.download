@@ -1,0 +1,7 @@
+var gwc_environment = {
+	'serverName': '//www.spark.co.nz',
+	'gmsName': '//www.spark.co.nz/gms',
+	'giamsName': '//www.spark.co.nz/giams',
+	'debug': false,
+	'defaultPageTag': ''
+};

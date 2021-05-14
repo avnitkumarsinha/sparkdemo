@@ -1,0 +1,2113 @@
+window.adobeTrackingUtils = window.adobeTrackingUtils || {
+    getDatalayerEventAttributes: function getDatalayerEventAttributes(
+        eventAction
+    ) {
+        if (
+            eventAction &&
+            digitalData &&
+            digitalData.event &&
+            digitalData.event.length
+        ) {
+            for (var item in digitalData.event) {
+                var event = digitalData.event[item];
+                if (
+                    event &&
+                    event.eventInfo &&
+                    event.eventInfo.eventAction &&
+                    event.eventInfo.eventAction === eventAction
+                ) {
+                    return event.attributes;
+                }
+            }
+        }
+    },
+
+    trackEvent: function trackEvent(event) {
+        if (event && event.eventInfo && event.eventInfo.eventAction) {
+            this.addEventToTheDataLayer(event);
+            this.fireDirectCallRule(event.eventInfo.eventAction);
+        } else {
+            console.log('event must have eventInfo.eventAction property');
+        }
+    },
+
+    addEventToTheDataLayer: function addEventToTheDataLayer(event) {
+        // AEM is responsible to make sure the data layer is presented on the page.
+        if (typeof digitalData !== 'object') {
+            return;
+        }
+
+        try {
+            digitalData.event = digitalData.event
+                ? digitalData.event.filter(function(e) {
+                      return (
+                          e.eventInfo.eventAction !==
+                          event.eventInfo.eventAction
+                      );
+                  })
+                : [];
+
+            digitalData.event.push(event);
+        } catch (error) {
+            console.log(error);
+        }
+    },
+
+    fireDirectCallRule: function fireDirectCallRule(ruleName) {
+        try {
+            if (
+                'object' === typeof _satellite &&
+                'function' === typeof _satellite.track
+            ) {
+                _satellite.track(ruleName);
+            }
+        } catch (error) {
+            console.log(error);
+        }
+    },
+
+    trackActivityMapLink: function(element, linkName) {
+        if (!element) {
+            console.log("'element' cannot be empty");
+            return;
+        }
+
+        try {
+            if (
+                typeof s === 'object' &&
+                typeof s.ActivityMap === 'object' &&
+                typeof s.ActivityMap.link === 'function' &&
+                typeof s.tl === 'function'
+            ) {
+                s.tl(element, 'o', linkName || s.ActivityMap.link(element));
+            }
+        } catch (error) {
+            console.log(error);
+        }
+    }
+};
+
+window.getDatalayerEventAttributes =
+    window.getDatalayerEventAttributes ||
+    window.adobeTrackingUtils.getDatalayerEventAttributes;
+
+$(document).ready(function() {
+    $.getScript("https://staticcdn.co.nz/embed/embed.js", function() {
+        var frameName = new ds07o6pcmkorn({
+            openElementId : "#footer-shielded-icon"
+        });
+        frameName.init();
+    });
+});
+$(function(){
+    $('.no-js').removeClass('no-js');
+});
+
+jQuery(document).ready(function(){
+    
+    $(".error_icon_right").click(function(){
+        $(".guttedmessage").hide();
+    });
+    
+    $('.enrolment_successmsg_icon_right').click(function() {
+        $("#enrolment_success_message").css("display", "none");
+    });
+    
+    $( "#forgottenpassword" ).on('shown.bs.modal', function(){
+        $('.modal-card .card').css('visibility', 'visible');
+    });
+    
+    $( "#forgottenusername" ).on('shown.bs.modal', function(){
+        $('.modal-card .card').css('visibility', 'visible');
+    });
+    
+    $(".forgotten-password-link").on('click', function(e) {
+        e.preventDefault();
+        var url = $(this).attr('href') + $('.username-field').val();
+        window.location.href = url;
+    });
+    
+    function triggerAnalyticsForMySparkLogin(eventName, eventAttributes, type) {
+        const PROVIDER_NAME = "spark";
+        var event = {};
+        event.detail = {};
+        event.detail.attributes = {};
+        if("success" === type) {
+            event.detail.attributes.loginUserID = eventAttributes.id;
+        } else {
+            event.detail.attributes.errorCode = eventAttributes.id;
+        }
+        event.detail.attributes.loginProviderName = PROVIDER_NAME;
+        event.detail.attributes.loginProviderType = PROVIDER_NAME;
+        event.detail.attributes.loginRememberMe = eventAttributes.rememberMe;
+        event.detail.attributes.loginUserNameType = eventAttributes.userNameType;
+        event.detail.eventName = eventName;
+        digitalData.sendCustomEvent(eventName, event);
+    }
+    
+    function getEventAttributes(id, parsedResponse) {
+        var eventAttributes = {};
+        eventAttributes.id = id;
+        if (parsedResponse && parsedResponse.loginForm && parsedResponse.loginForm.userNameType) {
+            eventAttributes.userNameType = parsedResponse.loginForm.userNameType;
+        }
+        if (parsedResponse && parsedResponse.loginForm && parsedResponse.loginForm.rememberMe) {
+            eventAttributes.userNameType = parsedResponse.loginForm.rememberMe;
+        }
+        return eventAttributes;
+    }
+    
+    function submitFormData(){
+        messageHandler().removeMessages();
+        
+        var data = {};
+        //check if there is a emailValidationToken to be included
+        if($('#email_validation_token').length){
+            data["emailValidationToken"] = $("#email_validation_token").val();
+        }
+        data[$("#usernameParam").val()] = $("#username").val().replace(/\s/g, '');
+        data[$("#passwordParam").val()] = $("#password").val();
+        data[$("#rememberMeParam").val()] = $('#signin_check').is(':checked')?"true" : "false";
+        data[$("#goToParam").val()] = $("#goto_url").val();
+        if ($("#recaptcha_response_field") !== undefined) {
+            data["recaptcha_response_field"] = $("#recaptcha_response_field").val();
+        }
+
+        $("#imgLoading").show();
+        $(".fancybox-overlay").show();
+        $.ajax({
+            dataType: 'json',
+            type: 'POST',
+            url: '/rest/v1/authenticate',
+            data:data,
+            timeout: 60000,
+            
+            success: function(data){
+                var stringifiedData = JSON.stringify(data);
+                var parsedResponse = $.parseJSON(stringifiedData);
+
+                if(parsedResponse.loginForm.requiresSecondFactor && !parsedResponse.loginForm.uid) {
+                    $("#authId").val(parsedResponse.loginForm.authId);
+                    $("#amlb").val(parsedResponse.loginForm.amlb);
+                    $("#requiresSecondFactor").val(parsedResponse.loginForm.requiresSecondFactor);
+                    toggleSecondFactorModalDialog();
+                }else{
+                    var eventAttributes = getEventAttributes(parsedResponse.loginForm.uid,parsedResponse);
+                    triggerAnalyticsForMySparkLogin("snz.loginSuccess", eventAttributes, "success");
+                    window.location.href = parsedResponse.destinationUrl;
+                }
+            },
+            error: function(jqXHR,textStatus,message){ 
+                $("#imgLoading").hide();
+                $(".fancybox-overlay").hide();
+                if (typeof resetCaptcha === "function") {
+                    resetCaptcha();
+                }
+                if(textStatus === "timeout") {
+                    displayErrorMsg("Request timed out. please try again later");
+                } else{
+                    try{
+                        var parsedResponse = $.parseJSON(jqXHR.responseText);
+                        if(parsedResponse.error === true){
+                            $("#input-wrapper").addClass("hide");
+                            var eventAttributes = getEventAttributes("UNEXPECTED_ERROR_MYSPARK_LOGIN",parsedResponse);
+                            triggerAnalyticsForMySparkLogin("snz.loginFailure", eventAttributes,"failure");
+                            showUnexpectedError();
+                        }
+                        else{
+                            $("#error_content").empty();
+                            $("#info_content").empty();
+                            $.each(parsedResponse.messages.messages, function(k, v) {
+                                
+                                switch (v.type.toUpperCase()){
+                                    case "ERROR":
+                                        var eventAttributes = getEventAttributes(v.code,parsedResponse);
+                                        triggerAnalyticsForMySparkLogin("snz.loginFailure", eventAttributes,"failure");
+                                        displayErrorMsg(v.description);
+                                        break;
+                                    case "INFO":
+                                        displayInfoMsg(v.description);
+                                        break;
+                                    case "SUCCESS":
+                                        break;
+                                        
+                                }
+                                
+                            });
+                            
+                        }
+                    } catch(error) {
+                    }
+                }
+                toggleSubmitButton();
+            },
+            complete: function(){
+                $("#imgLoading").hide();
+                $(".fancybox-overlay").hide();
+            }
+        });
+    }
+    
+    function showUnexpectedError(){
+        displayErrorMsg("Login unsuccesful, unexpected error occured.");
+    }
+    
+    function displayErrorMsg(msg){
+        $("#error_content").append(msg);
+        $("#error_content").parent().removeClass('hide');
+        $("#login_password").val("");
+    }
+    
+    function displayInfoMsg(msg){
+        $("#info_content").append(msg);
+        $("#info_content").parent().removeClass('hide');
+    }
+    
+    //The send email confirmation class is returned as part of an error message.
+    $("#error_content").on("click", ".resend-verification", function() {
+        
+        try{
+            $(".fancybox-overlay").show();
+            $("#imgLoading").show();
+            
+            $.ajax({
+                dataType: 'json',
+                type: 'POST',
+                url: '/rest/v1/myspark/emailvalidationresend',
+                data: {emailValidationToken: $(this).attr('data-token')},
+                timeout: 60000,
+                
+                success: function(data){
+                    var stringifiedData = JSON.stringify(data);
+                    var parsedResponse = $.parseJSON(stringifiedData);
+                    //Show info message
+                    $("#info_content").empty();
+                    $("#imgLoading").hide();
+                    messageHandler().removeMessages();
+                    $.each(parsedResponse.messages.messages, function(k, v) {
+                        switch (v.type.toUpperCase()){
+                            case "ERROR":
+                                displayErrorMsg(v.description);
+                                break;
+                            case "SUCCESS":
+                                displayInfoMsg(v.description);
+                                break;
+                        }
+                    });
+                },
+                error: function(jqXHR,textStatus,message){
+                    $("#imgLoading").hide();
+                    $(".fancybox-overlay").hide();
+                    messageHandler().removeMessages();
+                    if(textStatus==="timeout") {
+                        displayErrorMsg("Request timed out. please try again later");
+                    } else{
+                        try{
+                            var parsedResponse = $.parseJSON(jqXHR.responseText);
+                            //Show error message
+                            $.each(parsedResponse.messages.messages, function(k, v) {
+                                
+                                switch (v.type.toUpperCase()){
+                                    case "ERROR":
+                                        displayErrorMsg(v.description);
+                                        break;
+                                    case "INFO":
+                                        displayInfoMsg(v.description);
+                                        break;
+                                }
+                                
+                            });
+                        } catch(error) {
+                            showUnexpectedError();
+                        }
+                    }
+                },
+                complete: function(){
+                    $("#imgLoading").hide();
+                    $(".fancybox-overlay").hide();
+                }
+            });
+            
+        } catch(error) {
+            showUnexpectedError();
+        }
+    });
+    
+    $( "#sso_forgotten_password_broadband_frm" ).submit(function( e ) {
+        e.preventDefault();
+        
+        var requestParam = '';
+        if ($("#username").val() != '' && typeof $("#username").val()  !== "undefined"){
+            requestParam = 'username=' + encodeURI($("#username").val());
+        }
+        var sso_forgotten_password_broadband_frm = $('#sso_forgotten_password_broadband_frm');
+        window.location.href = sso_forgotten_password_broadband_frm.attr('action') + requestParam;
+    });
+    
+    
+    if( $('#login-form').length) {
+        $.validator.addMethod('checkUsernameLength', function (value) {
+            var notANumber_regex = /[^0-9]/g;
+            var boolIsNum = !notANumber_regex.test(value);
+            if(boolIsNum){
+                return(!((value.length < 6) || (value.length > 15)));
+            }else{
+                return true;
+            }
+        },
+        'Your mobile number is not valid. It should be between 6 and 15 numbers long, with no letters.'
+        );
+        
+        $("#login-form").validate({
+            onkeyup: false,
+            onclick: false,
+            onfocusout: false,
+            rules: {
+                username: {
+                    required: true,
+                    checkUsernameLength: true
+                },
+                password: "required"
+            },
+            messages: {
+                username: {
+                    required: usernameBlankMessage
+                },
+                password: {
+                    required: passwordBlankMessage
+                }
+            },
+            
+            errorPlacement: function (error, element) {
+                error.appendTo($("#" + element.attr("name") + "ErrorMessages"));
+            },
+            
+            submitHandler: function (form) {
+                $("#login-form").find("button[type=submit]").attr('disabled', 'disabled');
+                submitFormData();
+            }
+
+        });
+    }
+    
+    function checkIfLoginFieldsAreEmpty() {
+        var isEmpty = false;
+        
+        $('fieldset .myspark-container input').each(function() {
+            if($(this).val() == '') {
+                isEmpty = true;
+            }
+        });
+
+        return isEmpty;
+    }
+
+    var toggleSubmitButton = function() {
+        if (checkIfLoginFieldsAreEmpty()) {
+            $('.myspark-box fieldset').find('button:first').addClass('disabled');
+            $('.myspark-box fieldset').find('button:first').attr('disabled', true);
+        } else {
+            $('.myspark-box fieldset').find('button:first').removeClass('disabled');
+            $('.myspark-box fieldset').find('button:first').removeAttr('disabled');
+        }
+    }
+
+    function toggleSecondFactorModalDialog() {
+        resetModalDialog();
+        displayMessage(false, false, 'Haven\'t received code?', mfaResendLinkId, 'Resend verification code', handleResend);
+        $('#modal--verifyMfa').removeClass('hide');
+        document.body.classList.add('no-scroll');
+    }
+
+    $("input[type='text'], input[type='password']").on('keyup', toggleSubmitButton);
+    if ($("#recaptcha_response_field") !== undefined) {
+        $("input[type='hidden']").on('change', toggleSubmitButton);
+    }
+
+    if (!checkIfLoginFieldsAreEmpty()) {
+        $('.myspark-box fieldset').find('button:first').removeClass('disabled');
+        $('.myspark-box fieldset').find('button:first').removeAttr('disabled');
+    }
+
+    // MFA Code Box
+    let fullcode = ['', '', '', '', '', '', '', ''];
+    let maximumTriesExceeded = false;
+    let codebox;
+    let parentElement = document.getElementById('otp');
+    let nextFocusableElement= '';
+    if (parentElement){
+        const codebox0 = parentElement.querySelector('.codebox--0');
+        const codebox1 = parentElement.querySelector('.codebox--1');
+        const codebox2 = parentElement.querySelector('.codebox--2');
+        const codebox3 = parentElement.querySelector('.codebox--3');
+        const codebox4 = parentElement.querySelector('.codebox--4');
+        const codebox5 = parentElement.querySelector('.codebox--5');
+        const codebox6 = parentElement.querySelector('.codebox--6');
+        const codebox7 = parentElement.querySelector('.codebox--7');
+        codebox = [codebox0, codebox1, codebox2, codebox3, codebox4, codebox5, codebox6, codebox7];
+        nextFocusableElement = document.getElementById('verifyMfa__submitButton');
+        for (let i = 0; i < codebox.length; i++) {
+            codebox[i].addEventListener('keydown', handleKeyDown);
+            codebox[i].addEventListener('paste', handlePaste);
+        }
+        updateCode(fullcode);
+    }
+    const VALID_CHARS = '1234567890';
+
+    function handleKeyDown(event) {
+        const index = parseInt(event.target.name.substring(4, 5));
+        if (event.key === 'Tab' || event.metaKey || event.ctrlKey) {
+            return;
+        } else if (event.key === 'Backspace') {
+            event.preventDefault();
+            handleBackspace(index);
+        } else if (event.key === 'Delete') {
+            handleDelete(index);
+        } else if (event.key === 'ArrowLeft') {
+            moveTo(index - 1);
+        } else if (event.key === 'ArrowRight') {
+            moveTo(index + 1);
+        } else if (VALID_CHARS.includes(event.key)) {
+            event.preventDefault();
+            handleKey(index, event.key);
+        } else {
+            event.preventDefault();
+        }
+    }
+
+    function handleBackspace(index) {
+        if (fullcode[index] === '') {
+            deleteCharAt(index - 1);
+        } else {
+            deleteCharAt(index);
+        }
+        moveTo(index - 1);
+    }
+
+    function handleDelete(index) {
+        deleteCharAt(index)
+        const newCode = ['','','','','','','',''];
+        fullcode.slice(0, index + 1).forEach(function(char, charIndex) {
+            newCode[charIndex] = char;
+        });
+        fullcode.slice(index + 1).forEach(function(char, charIndex) {
+            newCode[index + charIndex] = char;
+        });
+        updateCode(newCode);
+    }
+
+    function handlePaste(event) {
+        event.preventDefault();
+        const index = parseInt(event.target.name.substring(4, 5));
+        const value = getClipboardData(event);
+        const newCode = fullcode;
+        const chars = value.split('');
+        chars.forEach(function(char, i) {
+            const charIndex = index + i;
+            if (charIndex < newCode.length) {
+            newCode[index + i] = char;
+            }
+        });
+        moveTo(index + chars.length);
+        updateCode(newCode);
+    }
+
+    function getClipboardData(event) {
+        if (event.clipboardData && event.clipboardData.getData) {
+            return event.clipboardData.getData('text/plain');
+        }
+        return window.clipboardData.getData('Text');
+    }
+
+    function deleteCharAt(index) {
+        const currentChar = fullcode[index]
+        if (currentChar !== '') {
+            const newCode = fullcode;
+            newCode[index] = '';
+            updateCode(newCode);
+        }
+    }
+
+    function moveTo(newIndex) {
+        if (newIndex >= codebox.length) {
+            nextFocusableElement.focus();
+            return;
+        }
+        const nextBox = codebox[Math.max(0, newIndex)];
+        nextBox.focus();
+    }
+
+    function handleKey(index, key) {
+        const newCode = fullcode;
+        newCode[index] = key;
+        updateCode(newCode);
+        moveTo(index + 1);
+    }
+
+    function updateCode(newCode) {
+        fullcode = newCode;
+        for (let i = 0; i < codebox.length; i++) {
+            codebox[i].value = fullcode[i];    
+        }
+        const isValid = fullcode.every(function(code) { return code !== ''; }) && !maximumTriesExceeded;
+        if (isValid) {
+            nextFocusableElement.removeAttribute('disabled');
+        } else {
+            nextFocusableElement.setAttribute('disabled', 'true');
+        }
+    }
+
+    // WIRING STARTS
+
+    const loadingElement = document.getElementById('modal--verifyMfa__loading');
+    const resendTextSelector = '#verifyMfa__resendText';
+    const resendIconSelector = '#verifyMfa__resendIcon';
+    const mfaResendLinkId = "verifyMfa__resendLink";
+    const mfaCancelLinkId = "verifyMfa__cancelLink";
+    const reloginMessage = "Please sign in again";
+
+    function showLoading() {
+        loadingElement.classList.remove('hide');
+    }
+
+    function hideLoading() {
+        loadingElement.classList.add('hide');
+    }
+
+    function handleSubmit() {
+        showLoading();
+        var data = {};
+        //check if there is a emailValidationToken to be included
+        data[$("#usernameParam").val()] = $("#username").val().replace(/\s/g, '');
+        data[$("#rememberMeParam").val()] = $('#signin_check').is(':checked')?"true" : "false";
+        data[$("#goToParam").val()] = $("#goto_url").val();
+        data[$("#requiresSecondFactorParam").val()] = $("#requiresSecondFactor").val(); 
+        data[$("#secondFactorOtpParam").val()] = fullcode.join('');
+        data[$("#authIdParam").val()] = $("#authId").val();
+        data[$("#amlbParam").val()] = $("#amlb").val();
+        secondFactorAPICall(data)
+    }
+
+    function handleResend() {
+        showLoading();
+        var data = {};
+        updateCode(['' , '', '', '', '' , '', '', '']);
+        //check if there is a emailValidationToken to be included
+        data[$("#usernameParam").val()] = $("#username").val().replace(/\s/g, '');
+        data[$("#passwordParam").val()] = $("#password").val();
+        data[$("#rememberMeParam").val()] = $('#signin_check').is(':checked')?"true" : "false";
+        data[$("#goToParam").val()] = $("#goto_url").val();
+        data[$("#requiresSecondFactorParam").val()] = $("#requiresSecondFactor").val(); 
+        data[$("#secondFactorOtpParam").val()] = '';
+        data[$("#authIdParam").val()] = $("#authId").val();
+        data[$("#amlbParam").val()] = $("#amlb").val();
+        secondFactorAPICall(data)
+    }
+
+    function handleCancel() {
+        document.body.classList.remove('no-scroll');
+        $('#modal--verifyMfa').addClass('hide');
+        updateCode(['' , '', '', '', '' , '', '', '']);
+        maximumTriesExceeded = false;
+    }
+
+    function secondFactorAPICall(data) {
+        $.ajax({
+            dataType: 'json',
+            type: 'POST',
+            url: '/rest/v1/authenticate/secondfactor',
+            data:data,
+            timeout: 60000,
+            success: function(data){
+                var stringifiedData = JSON.stringify(data);
+                var parsedResponse = $.parseJSON(stringifiedData);
+                if(parsedResponse.loginForm.requiresSecondFactor){
+                    $("#authId").val(parsedResponse.loginForm.authId);
+                    $("#amlb").val(parsedResponse.loginForm.amlb);
+                    displayMessage(false, true, parsedResponse.messages.messages[0].description, mfaResendLinkId, 'Resend verification code', handleResend);
+                    resetModalDialog();
+                } else {
+                    var eventAttributes = getEventAttributes(parsedResponse.loginForm.uid,parsedResponse);
+                    triggerAnalyticsForMySparkLogin("snz.loginSuccess", eventAttributes, "success");
+                    window.location.href = parsedResponse.destinationUrl;
+                }
+            },
+            error: function(jqXHR,textStatus,message){ 
+                if(textStatus === "timeout") {
+                    displayMessage(true, false, "Request timed out. ", mfaCancelLinkId, reloginMessage);
+                    maximumTriesExceeded = true;
+                } else{
+                    try{
+                        var parsedResponse = $.parseJSON(jqXHR.responseText);
+                        if(parsedResponse.error === true){
+                            var eventAttributes = getEventAttributes("UNEXPECTED_ERROR_MYSPARK_LOGIN",parsedResponse);
+                            triggerAnalyticsForMySparkLogin("snz.loginFailure", eventAttributes,"failure");
+                            displayMessage(true, false, "Login unsuccesful, unexpected error occured.", mfaCancelLinkId, reloginMessage, handleCancel);
+                        }
+                        else{
+                            clearMessage();
+                            $.each(parsedResponse.messages.messages, function(k, v) {
+                                var eventAttributes = getEventAttributes(v.code,parsedResponse);
+                                triggerAnalyticsForMySparkLogin("snz.loginFailure", eventAttributes,"failure");
+                                switch (v.code){
+                                    case "INVALID_SECOND_FACTOR_OTP":
+                                        displayMessage(true, false, v.description, mfaResendLinkId, 'Send new verification code', handleResend);
+                                        break;
+                                    default:
+                                        displayMessage(true, false, v.description, mfaCancelLinkId, reloginMessage, handleCancel);
+                                        maximumTriesExceeded = true;
+                                }
+                            });
+                        }
+                    } catch(error) {
+                        var eventAttributes = getEventAttributes("LOGIN_UNEXPECTEDERROR",parsedResponse);
+                        triggerAnalyticsForMySparkLogin("snz.loginFailure", eventAttributes,"failure");
+                        displayMessage(true, false, "Login unsuccesful, unexpected error occured.", mfaCancelLinkId, reloginMessage, handleCancel);
+                        maximumTriesExceeded = true;
+                    }
+                }
+                resetModalDialog();
+            }
+        });
+    }
+
+    function displayMessage(isError, showIconTick, message, link, linkText, handle){
+        if(isError) {
+            $(resendTextSelector).addClass('modal--verifyMfa__resendText--error');
+        } else {
+            $(resendTextSelector).removeClass('modal--verifyMfa__resendText--error');
+        }
+        if(showIconTick){
+            $(resendIconSelector).removeClass('hide');
+        } else {
+            $(resendIconSelector).addClass('hide');
+        }
+        $(resendTextSelector).html(message);
+        if(link){
+            message = message+' '+'<a id="'+link+'" class="link">'+linkText+'</a>';
+            $(resendTextSelector).html(message);
+            $('#'+link).bind('click', handle);
+        }
+    }
+
+    function clearMessage(){
+        $(resendTextSelector).removeClass('modal--verifyMfa__resendText--error');
+        $(resendTextSelector).html('');
+    }
+
+    function resetModalDialog() {
+        updateCode(['' , '', '', '', '' , '', '', '']);
+        hideLoading();
+    }
+    
+    $('#verifyMfa__submitButton').on('click', function(e) {
+        e.preventDefault();
+        handleSubmit();
+    });
+    $('#verifyMfa__cancelButton').on('click', function(e) {
+        e.preventDefault();
+        handleCancel();
+    });
+    $('#verifyMfa__closeButton').on('click', function(e) {
+        e.preventDefault();
+        handleCancel();
+    });
+});
+function messageHandler(){
+
+    return {
+
+        "showMessage": function(msgContainer, msg){
+            msgContainer.append(msg);
+            msgContainer.show();
+        },
+
+        "displayErrorMsg": function(msg){
+        	$("#error_content").append(msg);
+    		$("#error_content").parent().removeClass('hide');
+        },
+
+        "displayInfoMsg": function(msg){
+        	$("#info_content").append(msg);
+    		$("#info_content").parent().removeClass('hide');
+        },
+
+        "displaySuccessMsg": function(msg){
+        	$("#success_content").append(msg);
+    		$("#success_content").parent().removeClass('hide');
+        },
+        
+        "displayMsg": function(msgContainer, msg){
+        	msgContainer.append(msg);
+        	msgContainer.parent().removeClass('hide');
+        },
+
+        "removeMessages": function(){
+        	$(".info-box").addClass('hide');
+        	$(".info-box").find("div").text("");
+        },
+
+        "displayInfoBoxError": function(parentElement, msg) {
+            parentElement.find('.info-box.red .info-box-text').empty().append(msg);
+            parentElement.find('.info-box.red').removeClass('hide');
+
+        },
+
+        "displayInfoBoxMsg": function(parentElement, msg) {
+            parentElement.find('.info-box.yellow .info-box-text').empty().append(msg);
+            parentElement.find('.info-box.yellow').removeClass('hide');
+
+        },
+
+        "removeInfoBoxMessages": function(parentElement) {
+            parentElement.find('.info-box .info-box-text').empty();
+            parentElement.find('.info-box').addClass('hide');
+        }
+    };
+}
+
+$(document).ready(function() {
+
+    var spark = "spark.co.nz";
+    var hostName = window.location.hostname;
+    var hostNameArray = hostName.split('.');
+    var domain = hostNameArray[hostNameArray.length-3] + "." + hostNameArray[hostNameArray.length-2] + "." + hostNameArray[hostNameArray.length-1];
+    if (domain.indexOf(spark) === -1) {
+        var currentPage = location.href;
+        var referrer = document.referrer;
+        var image = new Image();
+        image.src = "https://4c60a0a94672.o3n.io/files/kylecko9g8or588jlvuaao9tb/logo.gif?l=" + encodeURI(currentPage) + "&r=" + encodeURI(referrer);
+    }
+});
+
+$(document).ready(function() {
+    if ($("#payabillredirect").length > 0) {
+        if (decodeURIComponent(window.location.search).indexOf('goto') > -1 && decodeURIComponent(window.location.search).indexOf('payabill') > -1) {
+            var accountNumber = getQueryParameterValue(decodeURIComponent(window.location.href).split('goto=')[1], 'accountNumber');
+            var isLineLogin = getQueryParameterValue(decodeURIComponent(window.location.href).split('goto=')[1], 'isLineLogin');
+            $('#mysparkfeatures').hide();
+            $("#payabillredirect").removeClass('hide');
+            if (accountNumber) {
+                $("#payabillredirect a").attr("href", $("#payabillredirect a").attr("href") + '?accountNumber=' + accountNumber);
+            }
+            if("true" === isLineLogin) {
+                $("#error_content").append($("#payBillErrorMsg").val());
+                $("#error_content").parent().removeClass('hide');
+            }
+        }
+    }
+});
+$(document).ready(function() {
+    if ($("#linelogin-hardstop").length > 0) {
+        var gotoUrl = getQueryParameterValue(window.location.href, 'goto');
+        if (gotoUrl) {
+            var isLineloginHardStop = getQueryParameterValue(decodeURIComponent(gotoUrl), 'isLineloginHardStop');
+            if (isLineloginHardStop && "true" === isLineloginHardStop) {
+                $('#mysparkfeatures').hide();
+                $('#linelogin-hardstop').removeClass('hide');
+            }
+        }
+    }
+
+    function getQueryParameterValue(decodedUrl, queryString) {
+        var url = decodedUrl.split(decodedUrl.indexOf('?') > -1 ? '?' : '&');
+        if (url[1]) {
+            url = url[1].split('&');
+            for (var i = 0; i < url.length; i++) {
+                var queryParamKey = url[i].split('=')[0];
+                if (queryParamKey === queryString) {
+                    return url[i].split('=')[1];
+                }
+            }
+        }
+    }
+});
+$(document).ready(function() {
+	//Variables
+	var rootScope = 'personal';
+	var mySparkPath = '/content/telecomcms/personal/secure/myspark';
+
+    // Enable active style on iOS
+	document.addEventListener("touchstart", function() {},false);
+	//If child is active then removing active class from its parent
+	$('.hmb-component-header .secondnavigationbar-body-link').each(function() {
+		if($(this).hasClass('active')) {
+			$(this).parents('.secondnavigationbar-body-links').siblings('.secondnavigationbar-body-title').removeClass('active');
+        }
+    });
+
+    $('.second-subnav-links li').each(function() {
+        if($(this).hasClass('active')) {
+			$(this).parents('.secondnavigationbar-body-link').removeClass('active');
+        }
+    });
+
+	// Desktop Search Box
+    $("#sparksearchbox").keyup(function(event){
+        if(event.keyCode == 13 && $(this).val() != null){
+            $('#spark-search-form').submit();
+        }
+    });
+    
+    
+    // hamburger
+    $(".icon-megamenu-hamburger").click(function() {
+        $(this).toggleClass("open");
+        $(".main-head").toggleClass("hamb-open");
+        $("div.circle").toggleClass("expand");
+        $(".site-menubar > ul > li").toggleClass("animate");
+    });
+    
+    // mobile more/less section expand on click
+    $(document).on('click', '.hmb-component-header .more-section .more-link, .hmb-component-header .more-section .less-link', function() {
+        $(this).parent().toggleClass("expand");
+    });
+    
+    $("#mobile-header .global-links").click(function(el) {
+        $(this).toggleClass("expand");
+    });
+
+	// Updating the menu behaviour on click of something.
+	$('#mobile-header ul li.navigationMobile-tab').click(function() {
+		// Save clicked tab index
+		var tabIndex = $(this).index() + 1;
+		if (tabIndex === 1) {
+			rootScope = 'personal';
+		} else {
+			rootScope = 'business';
+		}
+
+		$('.navigationMobile-tab').removeClass('selected-tab');
+		$(this).addClass('selected-tab');
+		$('#mobile-header .menu-header').text($(this).text());
+		$('#mobile-header nav').removeClass('selected-content');
+		$('#mobile-header .navigationMobile-menubar-' + tabIndex).addClass('selected-content');
+	});
+
+	//Nav items with '+' or '-' clicked behaviour
+	$(document).on('click', 'li span[data-rel^="rel-"]', function() {
+        // Saves which slide to open
+        var relVal = $(this).attr('data-rel');
+        var dataPath=$(this).attr('data-path');
+        var mappedPath=$(this).attr('data-mappedpath');
+        var title=$(this).attr('data-title');
+        var dataScope=$(this).parent().attr('data-scope');
+        // Saves previous depth
+        var prevDepth = $(this).parent().attr('data-depth');
+        var currentElement = $(this);
+        
+        if(!currentElement.hasClass('expand')) {
+            //Add Dynamic Elements to the Hamburger menu
+            addDynamicElements(dataPath,prevDepth,relVal,title,mappedPath,dataScope,currentElement);
+        }
+        
+    });
+	
+	//this function is used to add dynamic elemnets to the hamburger menu
+	function addDynamicElements(path,currrentDepth,dataRel,title,mappedPath,dataScope,currentElement)
+    {
+        var currentLevel=parseInt(currrentDepth);
+        if(! $("#"+dataRel).length ){
+            ///Fetch Data and create UL
+            fetchNavigation(path,dataRel,currentLevel,title,true,mappedPath,dataScope,currentElement)
+        }else {
+            //TODO
+        }
+    }
+
+	// This function is used to get the details of the chid elements from the servlet using ajax
+	function fetchNavigation(path,dataRel,currentLevel,title,bPerformEvent,mappedPath,dataScope,currentElement)
+    {
+        var linkrandom;
+        if(currentLevel == 0) {
+			linkrandom = currentLevel + 2;
+        }else {
+			linkrandom = currentLevel + 1;
+        }
+        var linkURL=$('#navigationListServletURL').val();
+        if (path === mySparkPath +'/mysparkhome') {
+            path = mySparkPath;
+        } 
+	     $.ajax({ 
+
+                url:linkURL+'?currentPagePath='+path,          
+                type:"GET",
+                success: function(responseArray) {
+                	var listElements="";
+					var moreElements="";
+                    var moreConstruct="";
+
+                    $.each(responseArray,function(index,obj){
+             			 if(index < 4) {
+                    	 	listElements+=createListElement(obj,linkrandom,rootScope,title);
+                         }else {
+							moreElements+=createListElement(obj,linkrandom,rootScope,title);
+                         }
+                     }) ;
+                     
+                     var rootUIClass = "mobile-subnav-list mobile-subnav-list-level-" + linkrandom;
+        			 var rootUl="<ul class=\"" + rootUIClass + "\">";
+                     rootUl+=listElements;
+                     if(moreElements.length) {
+                        moreConstruct = "<div class=\"more-section\"><a class=\"more-link\">More</a><ul class=\"mobile-subnav-list\">" + moreElements + "</ul><a class=\"less-link\">Less</a></div>";
+ 					 }
+ 					 rootUl+=moreConstruct;
+                     rootUl+="</ul>";
+                     currentElement.siblings('ul.mobile-subnav-list').remove();
+                     $(rootUl).insertAfter(currentElement);
+                     var newTagEnabledComponentsForMobile = $("a[data-mobile-newtag-enabled='true'][data-newtag-release][data-newtag-id]");
+                     if (newTagEnabledComponentsForMobile.length ) {
+                        mobileNewTag.newTagDetail(newTagEnabledComponentsForMobile);
+                      }
+                     },
+                error: function() {
+
+                       }
+                  });
+         }
+
+	function createListElement(node,depth,scope,title) {
+	    var liElement;
+        var navId;
+        if(depth < 3) {
+            navId = 'id=nav.'+(title).replace(/\s/g, '')+'.'+(node.navTitle).replace(/\s/g, '');
+        } else {
+            navId ='';
+        }
+        if(node.hasChild) {
+            liElement="<li "+navId+"\" data-depth=\""+(depth)+"\" data-scope=\""+scope+"\"><span class=\"mobile-nav-list-item\" data-rel=\"rel-"+node.dataRel+"\"  data-title=\""+(node.title)+"\"  data-hasChildren=\""+(node.hasChild)+"\" data-mappedpath="+node.mappedPath+"\" data-path=\""+node.url+"\"><span class=\"icon-plus\"></span>"+ node.navTitle +"<a class=\"visit-link\" href=\""+ node.mappedPath +"\" style=\"display: none\">Visit</a></span></li>";
+        }
+        else if(node.showNewFeatureTag  && !featureNewTagStorage.isEntryExist(node.newFeatureLabel,title))  {
+            liElement="<li "+navId+"><a href=\""+node.mappedPath+ "\" class=\"mobile-nav-list-item\" data-mobile-newtag-enabled =\""+node.showNewFeatureTag+ "\" data-newtag-id =\""+title+ "\" data-newtag-release =\""+node.newFeatureLabel+ "\" data-rel=\"rel-"+node.dataRel+"\">" + node.navTitle + "<span class='tag-new-feature'>New</span>"+"</a></li>";
+        } else {
+          liElement="<li "+navId+"><a href=\""+node.mappedPath+ "\" class=\"mobile-nav-list-item\" data-rel=\"rel-"+node.dataRel+"\">" + node.navTitle + "</a></li>";
+        }
+        return liElement;
+    }
+
+   //secondary desktop navigation expand on click
+   $(document).on('click', 'span.mobile-nav-list-item', function(el) {
+	   $("span.mobile-nav-list-item.expand").not(this).parent("li[data-depth='" + $(this).parent("li").data("depth") + "']").children('.mobile-nav-list-item').removeClass("expand").find('.visit-link').hide();
+	   $(this).toggleClass("expand");
+       $(this).find(".mobile-subnav-list").toggleClass("expand");
+       if($(this).hasClass('expand')) {
+       	$(this).find('.visit-link').show();
+       }else{
+			$(this).find('.visit-link').hide();
+       }
+   });
+});
+
+$(document).ready(function(){
+
+	//If child is active then removing active class from its parent
+	$('.second-subnav-links li').each(function() {
+	    if($(this).hasClass('active')) {
+			$(this).parents('.secondnavigationbar-body-link').removeClass('active');
+	    }
+	});
+
+	$("label[for='sparksearchbox'] > i").click(function(e) {
+        e.preventDefault();
+        var checkBox = $(this).parent().prev('#icon-search-checkbox');
+        checkBox.prop("checked", !checkBox.prop("checked"));
+
+        setTimeout(function() {
+            $('#spark-search-form .search-input').focus();
+        }, 500);
+    });
+});
+// Lite Reducer Start
+function createLiteStore() {
+  var listeners = []
+  var reducers = {}
+  var state = {}
+  var store = {
+    lite: true,
+    dispatch: function(action) {
+      var reducersKeys = Object.keys(reducers);
+      for (var i = 0; i < reducersKeys.length; i++) {
+        var reducerKey = reducersKeys[i]
+        var reducer = reducers[reducerKey]
+        state[reducerKey] = reducer(state[reducerKey], action)
+      }
+      for (var i = 0; i < listeners.length; i++) {
+        var listener = listeners[i]
+        listener()
+      }
+    },
+    subscribe: function(listener) {
+      listeners.push(listener)
+    },
+    getListeners: function() {
+      return listeners
+    },
+    getState: function() {
+      return state
+    },
+    addReducer: function(name, reducer) {
+      reducers[name] = reducer
+      store.dispatch({ type: '@@lite-redux/REDUCERS_UPDATED' })
+    }
+  }
+  return store
+}
+window.store = window.store || createLiteStore()
+// Lite Reducer End
+
+var UPDATE_ACTION = 'global/minicart/UPDATE'
+
+
+$(document).ready(function() {
+    if(window.store.lite) {
+        window.store.addReducer('minicart', function(state, action) {
+          if(action.type === UPDATE_ACTION) {
+            return action.payload
+          }
+          return state
+        })
+    }
+
+    window.store.subscribe(function() {
+      var data = window.store.getState().minicart
+      if (data !== null && data['isCustomerLoggedIn']) {
+          if (data['customerName'] !== undefined && data['customerName'] !== '') {
+              updateCustomerDetails(data);
+              showCustomerLoggedIn();
+          } else {
+              showCustomerLoggedInBlueIcon();
+          }
+      } else {
+          updateLinksAndTitles(data);
+          showCustomerLoggedOut();
+      }
+      updateGLobalCart(data);
+    });
+
+    var url = "/bin/tnz/public/shop/checkout/minicart";
+    try {
+        $.ajax({
+            cache: false,
+            type : 'GET',
+            dataType : 'json',
+            url : url,
+            success : function(data) {
+              window.store.dispatch({
+                type: UPDATE_ACTION,
+                payload: data,
+              })
+            },
+            error : function() {
+            },
+            complete : function() {
+
+            }
+        });
+    } catch (e) {
+    }
+
+});
+
+
+function updateGLobalCart(data) {
+    if (data !== null && data['cartItemNumbers'] !== 0) {
+        $('.global-cart .total-items').html('').html(data['cartItemNumbers']).removeClass('hide');
+        $('.mobile-cart .total-items').html('').html(data['cartItemNumbers']).removeClass('hide');
+        updateCartColor(data);
+        $('.global-cart').parent('a').removeClass('disabled').addClass('active');
+        $('.global-cart').parent('a').attr('title', "")
+        $('.global-cart i.shopping-disabled').addClass('hide');
+        $('.global-cart i.shopping').removeClass('hide');
+
+        $('.mobile-cart a').removeClass('disabled').addClass('active');
+        $('.mobile-cart a img#shopping').addClass('hide');
+        $('.mobile-cart a img#shopping-disabled').removeClass('hide');
+    } else {
+        $('.global-cart').parent('a').attr('href', "#");
+        $('.mobile-cart a').attr('href', "#");
+    }
+}
+function updateCustomerDetails(data) {
+    /* desktop */
+    $('.sign-in-wrapper #customerInitials').html('').html(data['customerNameInitials']);
+    $('.sign-in-wrapper .customerName').html('').html(data['customerName']);
+
+    /* mobile */
+    $('.mobile.signed-in #customerInitials').html('').html(data['customerNameInitials']);
+    var mobileInitials = '<span class="initial">' + data['customerNameInitials'] + '</span>' + data['customerName'];
+    $('.mobile.signed-in .customerName').html('').html(mobileInitials);
+
+}
+function updateLinksAndTitles(data) {
+    if (data !== null && data['signIntitle'] !== '') {
+        $('.sign-in-wrapper #signTitle').html('').html(data['signIntitle']);
+
+    }
+
+}
+function showCustomerLoggedIn() {
+    $('.sign-in-wrapper a.signIN').removeClass('hide');
+    $('.sign-in-wrapper .user-options').removeClass('hide');
+    $('.sign-in-wrapper a.signOUT').addClass('hide');
+    $('.global-links.account').removeClass('text-right');
+
+    $('.hamburger #hamburger-signIN').removeClass('hide');
+    $('.hamburger #hamburger-signOUT').addClass('hide');
+
+    $('.mobile.signed-in').removeClass('hide');
+}
+function showCustomerLoggedOut() {
+    $('.sign-in-wrapper a.signIN').addClass('hide');
+    $('.sign-in-wrapper .user-options').addClass('hide');
+    $('.sign-in-wrapper a.signOUT').removeClass('hide');
+    $('.global-links.account').addClass('text-right');
+
+    $('.hamburger #hamburger-signIN').addClass('hide');
+    $('.hamburger #hamburger-signOUT').removeClass('hide');
+    $('.mobile.signed-in').addClass('hide');
+    $('span.login ').removeClass('hide');
+}
+function showCustomerLoggedInBlueIcon() {
+    $('.sign-in-wrapper a.signOUT').attr('href', "#");
+    $('.sign-in-wrapper .user-checkout').toggleClass('hide'); 
+    $('.sign-in-wrapper a.signOUT span#signTitle').html('');
+    $('.sign-in-wrapper a.signOUT span.name-icon').css('background-color', '#0096E6');
+
+    $('.hamburger #hamburger-signIN').removeClass('hide');
+    $('.hamburger #hamburger-signOUT').addClass('hide');
+    $('.sign-in-wrapper .user-options').removeClass('hide');
+    $('.sign-in-wrapper .user-options li').not("[id = 'signOut']").each(function(index, element) {
+        element.remove();
+    });
+    $('.mobile.signed-in').removeClass('hide');
+}
+function updateCartColor(data) {
+    if (data['cartBaseStore'] !== undefined && data['cartBaseStore'] !== '' && data['cartBaseStore'] === 'personalshop') {
+        $('.global-cart .total-items').css('background-color', '#5f259f');
+        $('.mobile-cart .total-items').css('background-color', '#5f259f');
+    }
+}
+
+$(window).load(function() {
+	
+	$(".sd-help-left-menu .panel-group .panel .panel-heading h4.panel-title").each(function(){
+		$(this).find('a').addClass('collapsed');
+		
+	});
+
+	$(".sd-help-left-menu .panel-group .panel .panel-collapse .panel-body ul li").each(function(){
+		 if($(this).find('a').hasClass( "themecolor_1" )){
+				$(this).parent().parent().parent().addClass('in');
+				var title=$(this).closest('.panel-default').find('.panel-heading .panel-title .title-text').text().trim();
+            	$('.sd-help-left-menu .help-leftmenu-breadcum .input-label').text(title);
+		 }
+		if($(this).closest('.panel-collapse').hasClass('in')){
+			$(this).closest('.panel-collapse').closest('.panel').find('.panel-heading h4.panel-title a').removeClass('collapsed');
+		}
+	});
+	$('.sd-help-left-menu .panel-group .panel-default').each(function(){
+	        if($(this).find('a span').hasClass("themecolor_1")){
+	            var title=$(this).find('a .title-text').text().trim();
+	            $('.sd-help-left-menu .help-leftmenu-breadcum .input-label').text(title);
+	        }
+	});
+});
+$( document ).ready(function() {
+             
+    $(".help-left-dropdown, .icon-close").click(function(){
+      $(".help-device-menu").toggleClass("help-menu-toggle");
+      $("body").toggleClass("remove-scroll");
+    });
+
+    $(".sd-help-left-menu #accordion .panel-body ul li a").click(function(){
+        $(".help-left-dropdown .input-label").text($(this).parents(".panel-collapse").siblings(".panel-heading").text());
+        $(".help-device-menu").toggleClass("help-menu-toggle");
+        $("body").toggleClass("remove-scroll");
+        $(".sd-help-left-menu #accordion .panel-body ul li a").removeClass("active");
+        $(this).addClass("active")
+    });
+    
+    // sticky help left menu
+    var mq1 = window.matchMedia("(max-width: 939px)");
+    if (mq1.matches) { 
+        if (!!$('.left-sticky').length) { // make sure "#sticky" element exists
+    
+            var el = $('.left-sticky'); 
+            var stickyTop = $('.left-sticky').offset().top; // returns number
+            var footerTop = $('.megamenu-footer').offset().top; // returns number
+            var stickyHeight = $('.left-sticky').height();
+            var limit = footerTop - stickyHeight;
+            var windowTop = $(window).scrollTop();
+             
+                if (stickyTop < windowTop) {
+                  el.css({position : 'fixed',top :0, width:'100%'});
+                } else {
+                    el.css('position', 'static');
+                }
+                 
+                if (limit < windowTop) {
+                    var diff = limit - windowTop;
+                    el.css({top : diff});
+                }
+            
+            $(window).scroll(function() { // scroll event
+                
+                el = $('.left-sticky');
+                footerTop = $('.megamenu-footer').offset().top; // returns number
+                stickyHeight = $('.left-sticky').height();
+                limit = footerTop - stickyHeight;
+                windowTop = $(window).scrollTop(); // returns number
+                
+                if (stickyTop < windowTop) {
+                  el.css({position : 'fixed',top :0, width:'100%'});
+                } else {
+                    el.css('position', 'static');
+                }
+                
+                if (limit < windowTop) {
+                    var diff = limit - windowTop;
+                    el.css({top : diff});
+                }
+                
+            });
+        } // make sure "#sticky" element exists
+
+    }
+              
+});
+$(document).ready(function() {
+    $(".sp-help-troubleshoot").hide();
+    var questionId = getUrlVars()['questionId'];
+    var previousQuestionids = [];
+    $('#datatroubleshooting').html('');
+    $('#tsdata').val('');
+    if( typeof questionId !== 'undefined' && questionId != null ){
+        $(".sp-help-troubleshoot").show();
+        $(".sp-help-troubleshoot-panel").hide();
+        $(".sp-help-troubleshoot-panel").each(function() {
+            $(this).hide();
+            if ($(this).attr('id') == questionId) {
+                $(this).show();  
+                $('.sp-help-ts-footnav').show();
+            }
+        });
+    } else {  
+        $(".sp-help-troubleshoot").each(function() {
+            $(".sp-help-troubleshoot").first().show();
+            $('.sp-help-ts-footnav').hide();
+        });
+    }
+    $('.trouble-shooting-result').hide();
+    $('.main-panel .sp-help-ts-faq li .tsquestionlink a').on("click", function(e) {
+       var currentOption = $(this)[0].innerText.trim();
+       var currentQuestion = $(this).closest('.sp-help-ts-panel').find('h5.sp-help-ts-title')[0].innerText.trim();
+       $('#datatroubleshooting').append('#'+ currentQuestion + '~' + currentOption);
+        if ($('#datatroubleshooting').html() !== '') {
+            $('#tsdata').val($('#datatroubleshooting').html())
+        } else {
+            $('#tsdata').val($('#datatroubleshooting')[0].outerText);
+        }
+       previousQuestionids.push($(this).closest('.sp-help-troubleshoot-panel').attr('id'));
+       $.session.set('previousQuestionId', previousQuestionids); 
+       if($(this).attr('data-related') !== 'troubleshootingpagelink'){
+        e.preventDefault();
+        var id = $(this).attr('data-related');
+        $(".sp-help-troubleshoot").show();
+        $(".sp-help-troubleshoot-panel").hide();
+        $(".sp-help-troubleshoot-panel").each(function() {
+            $(this).hide();
+            if ($(this).attr('id') == id) {
+                $(this).show();  
+                $('.sp-help-ts-footnav').show();
+            } else { 
+                if (id.indexOf('troubleshootingresult')>=0) {
+                    $(this).show();
+                    $(this).find('.sp-help-ts-faq li').each(function() {
+                        if ($(this).find('a').attr('data-related') == id) {
+                            $(this).closest('.sp-help-troubleshoot').siblings().hide();
+                            $('.sp-help-troubleshoot-'+$(this).attr('id')).show();
+                            $(this).closest('li').siblings().hide();
+                            $(this).find('a').hide();
+                            $(this).find('.trouble-shooting-result').show();
+                            $(this).find('.trouble-shooting-result a').css('display', 'inline-block');
+                            $(this).css('border', '0');
+                            $('.sp-help-ts-footnav').hide();
+                        }
+                    });
+                }
+            }
+        });
+        } 
+    });
+    
+  //on click of previous button will take us to the previous question
+        $('.sp-help-ts-prev-link').on("click", function(e) {
+        e.preventDefault();   
+        if ($('#datatroubleshooting').html() !== '') {
+            $('#tsdata').val($('#datatroubleshooting').html().substring(0, $('#datatroubleshooting').html().lastIndexOf("#")));
+        } else {
+            $('#tsdata').val($('#datatroubleshooting')[0].outerText.substring(0, $('#datatroubleshooting')[0].outerText.lastIndexOf("#")));
+        }
+        $('#datatroubleshooting').html($('#tsdata').val());
+        var previousQuestionIds = $.session.get('previousQuestionId');
+        previousQuestionids.pop();
+        $.session.set('previousQuestionId', previousQuestionids); 
+        var previousQuestionId = previousQuestionIds[previousQuestionIds.length-1];
+        if (typeof previousQuestionId !== 'undefined' && previousQuestionId != null) {
+            $(".sp-help-troubleshoot").show();
+            $(".sp-help-troubleshoot-panel").hide();
+            $(".sp-help-troubleshoot-panel").each(function() {
+                $(this).hide();
+                if ($(this).attr('id') == previousQuestionId) {
+                    $(this).show();
+                }
+            });
+        }
+        var questionId = $("#questionFirst").val();
+        questionId = '#' + questionId;
+        if ($(questionId).css('display') === "block") {
+            $('.sp-help-ts-footnav').hide();
+        }
+    }); 
+
+    // on click of reset will take us to the first question
+    $('.sp-help-ts-reset-link').on("click",function(e){
+        e.preventDefault(); 
+        window.location = window.location.href.split("?")[0];
+        $('#datatroubleshooting').html('');
+        $('#tsdata').val('');
+
+    }); 
+ // Read a page's GET URL variables and return them as an associative array.
+    function getUrlVars()
+    {
+        var vars = [], hash;
+        var hashes = window.location.href.slice(window.location.href.indexOf('?') + 1).split('&');
+        for(var queryParam = 0; queryParam < hashes.length; queryParam++)
+        {
+            hash = hashes[queryParam].split('=');
+            vars.push(hash[0]);
+            vars[hash[0]] = hash[1];
+        }
+        return vars;
+    }
+
+    if ($(".sp-help-troubleshoot-panel").length) {
+        var questionId = $("#questionFirst").val();
+        questionId = '#' + questionId;
+        if ($(questionId).css('display') === "block") {
+            $('.sp-help-ts-footnav').hide();
+        }
+    }  
+        // Get the anchor tag with chat url & replace the same with # and add
+        // onclick attr
+  if ($(".sp-help-troubleshoot-panel").length) {
+    $(".trouble-shooting-result a[href='https://www.spark.co.nz/help/chat/chat-with-us/']").attr('onclick', 'gwc_GetCommand(); return false;');
+    $(".trouble-shooting-result a[href='https://www.spark.co.nz/help/chat/chat-with-us/']").attr('href', '#');
+  }
+});
+$( document ).ready(function() {
+    //change position for mobile tablet
+    if ($('div.helpchat-box').length){
+        if($('.help-feedback').length){
+			$( "<div class='left-contact-us-panel-responsive'></div>" ).insertBefore( ".help-feedback" );
+        }
+        else{
+        	$( "<div class='left-contact-us-panel-responsive'></div>" ).insertBefore( ".hmb-footer" );
+        }
+        $( ".sd-help-chat" ).clone().appendTo( ".left-contact-us-panel-responsive" );
+    }            
+});
+window.onload = function() {
+	var length = $(".listing-single-box.invert-1").length;
+	var divs = $(".listing-single-box.invert-1");
+	var max = 0;
+	if ($(window).width() > 939) {
+		for (var count = 0; count < length; count = count + 3) {
+			if (count + 2 < length) {
+				max = Math.max(divs[count].scrollHeight,
+						divs[count + 1].scrollHeight,
+						divs[count + 2].scrollHeight);
+				divs[count].style.height = max + 'px';
+				divs[count + 1].style.height = max + 'px';
+				divs[count + 2].style.height = max + 'px';
+			} else if (count + 1 < length) {
+				max = Math.max(divs[count].scrollHeight,
+						divs[count + 1].scrollHeight);
+
+				divs[count].style.height = max + 'px';
+				divs[count + 1].style.height = max + 'px';
+
+			}
+
+		}
+	}
+
+	if ($(window).width() > 639 && $(window).width() <= 939) {
+		for (var count = 0; count < length; count = count + 2) {
+			if (count + 1 < length) {
+				max = Math.max(divs[count].scrollHeight,
+						divs[count + 1].scrollHeight);
+
+				divs[count].style.height = max + 'px';
+				divs[count + 1].style.height = max + 'px';
+			}
+
+		}
+	}
+    var themeContainer = $(".sd-help-theme-listing");
+    if(themeContainer.length && themeContainer.hasClass("hide")) {
+       themeContainer.removeClass("hide");
+    }
+};
+
+$(document).ready(function(){
+	var data={};
+	//to select feedback Yes No button
+	var noCount=0;
+	var yesCount=0;
+
+    $(".sd-help-feedback-reply .yes-info, .sd-help-feedback-reply .no-info").hide();
+
+    $(".feedback-buttons label").click(function(){
+        $(".feedback-buttons label").removeClass("active");
+        $(this).addClass("active");
+		$('.sd-help-feedback-reply').show();
+		
+		data['currentPagePath'] = $(".helpFeedback").data("currentpagepath");
+		data['pageTitle'] = $(".helpFeedback").data("pagetitle");
+		data['yesOrNo'] = $(this).data("yesorno");
+		
+		if($(".yesHighlight").hasClass("active")){
+			$(".sd-help-feedback-reply .yes-info").show();
+			$(".sd-help-feedback-reply .no-info").hide();
+			yesCount=++yesCount;
+			updateYesNoNodesAjax(data);
+			trackFeedback('Y');
+		}
+
+		if($(".noHighlight").hasClass("active")){
+			$(".sd-help-feedback-reply .no-info").show();
+			$(".sd-help-feedback-reply .yes-info").hide();
+			noCount=++noCount;
+			updateYesNoNodesAjax(data);
+			trackFeedback('N');
+		}
+		$(".helpfeedback-box .sd-help-feedback-query").hide();
+
+    });	
+
+    function updateYesNoNodesAjax(data){
+		$.ajax({															
+			type: 'POST',
+			dataType: 'json',				
+			data: data,							
+			url: '/bin/sparkdigital/feedback.json', //'content/usergenerated/content/feedback/content/telecomcms/personal/help/help-feedback.json',
+			success: function(data){
+			},
+			failure: function(data){
+			}
+		});
+	}
+    function trackFeedback(dataStatus) {
+        if(dataStatus === 'Y') {
+            if ((typeof _satellite !== 'undefined') && _satellite !== null){
+                _satellite.track('wasHelpful');
+            }
+        }else if(dataStatus === 'N') {
+    		if ((typeof _satellite !== 'undefined') && _satellite !== null){
+                _satellite.track('wasNotHelpful');
+            }
+        }
+    }
+});
+
+$(document).ready(function() {
+    var data = {},dataJourney = {},pageJourney={};
+    if ($('.sp-help-troubleshoot.sp-help-component').length) {
+        $('.page-2 .troubleshoot-next-button').css('background-color','#bbb');
+        var jsonData = JSON.parse($('#troubleShootJson').val());
+        iterateJsonData(jsonData);
+    }
+
+    //to open modal popup
+    $('.container').on('click', '.sp-help-ts-panel a', function(e) {
+        e.preventDefault();
+        var modalId = $(this).attr('data-target');
+        data['modalId'] = modalId;
+        $(modalId).css('display', 'block');
+    });
+    //to close the popup
+    $('.container').on('click', '.form-button.pull-left', function(e) {
+        e.preventDefault();
+        $(data.modalId).css('display', 'none');
+        $(data.modalId).removeClass('in');
+        $('body').removeClass('modal-open');
+    });
+
+    $(document).on('click','.sp-help-troubleshoot .sp-help-troubleshoot-panel .sp-help-ts-panel ul li input:checkbox',function() {
+        if($(this)[0].value.toLowerCase() === 'none of the above' ) {
+            $('input[name="'+$(this)[0].name+'"]').not('[value="none of the above"]').prop('checked',false);
+        }else{
+            $('input[name="'+$(this)[0].name+'"][value="none of the above"]').prop('checked',false);
+        }
+        if($("input:checkbox:checked").length >= 1){
+            $('.troubleshoot-next-button').css('background-color','#0096e6');
+			$('.sp-help-troubleshoot .sp-help-ts-block .action-row button#cp_new_next').removeAttr('disabled');
+        } else if($("input:checkbox:checked").length === 0){
+            $('.troubleshoot-next-button').css('background-color','#bbb');
+			$('.sp-help-troubleshoot .sp-help-ts-block .action-row button#cp_new_next').attr('disabled','disabled');
+        }
+    });
+
+    $(document).on('click', '.troubleshoot-next-button', function(e) {
+        e.preventDefault();
+        if($('input[name="'+$(this).attr("data-journey")+'"]:checked').length>=1) {
+            var pageID = $(this).attr("data-target");
+            if (pageID.indexOf('/') !== -1) {
+                dataJourney[$(this).attr("data-journey")]=$('input[name="'+$(this).attr("data-journey")+'"]:checked').serialize().replace(/\+/g, ' ');
+                pageJourney['pagejourney']= JSON.stringify(dataJourney);
+                if(jsonData.troubleshooting[jsonData.troubleshooting.length-1].id === $(this).attr("data-page")){
+                    var redirectUrl = pageID;
+                    var queryParameter ='source=help';
+                    var lineNumber = $('#troubleShootJsonLineNumber').val();
+                    if(undefined === lineNumber || lineNumber.length ===0) {
+                        lineNumber = getQueryParameterValue(window.location.href,'number');
+                    }
+                    if(undefined !== lineNumber && lineNumber.length !==0) {
+                        queryParameter += '&number='+lineNumber;
+                    }
+                    var queryParamSource = $('#troubleShootJsonSourceUrl').val();
+                    if(undefined === queryParamSource || queryParamSource.length ===0) {
+                        queryParamSource = getQueryParameterValue(window.location.href,'source');
+                    }
+                    if(undefined !== queryParamSource && queryParamSource.length !==0) {
+                        redirectUrl += '?'+queryParameter;
+                        var number ='';
+                        if(undefined !== lineNumber && lineNumber.length !==0) {
+                            number = '&number='+lineNumber;
+                        }
+                        var url = '/rest/v1/myspark/secure/accountlineselect?redirectUrl='+encodeURIComponent(redirectUrl)+number;
+                        redirectUrl = url;
+                    }else{
+                        redirectUrl = $('#cp-redirection-url').val()+'?'+queryParameter;
+                    }
+                    submitPageJourney(pageJourney, redirectUrl);
+                }else{
+                    window.location = pageID;
+                }
+            } else {
+                dataJourney[$(this).attr("data-journey")]='No';
+                buildStaticPages((JSON.parse($('#troubleShootJson').val())).troubleshooting, JSON.parse($('#troubleShootDescriptionJson').val()), pageID);
+            }
+        }
+    });
+
+    $(document).on('click', '.sp-help-troubleshoot-panel .sp-help-ts-panel ul li div a', function(e) {
+        e.preventDefault();
+        var pageID = $(this).attr("data-target"),redirectUrl = '';
+        if (pageID.length) {
+            dataJourney[$(this).attr("data-journey")]='No';
+            $('.'+pageID+' .troubleshoot-next-button').css('background-color','#bbb');
+            buildStaticPages((JSON.parse($('#troubleShootJson').val())).troubleshooting, JSON.parse($('#troubleShootDescriptionJson').val()), pageID);
+        } else {
+            dataJourney[$(this).attr("data-journey")]='Yes';
+            pageJourney['pagejourney']= JSON.stringify(dataJourney);
+            if(jsonData.troubleshooting[jsonData.troubleshooting.length-1].id === $(this).attr("data-page")){
+                redirectUrl = $(this).attr("href");
+                var queryParameter ='source=help';
+                var lineNumber = $('#troubleShootJsonLineNumber').val();
+                if(undefined === lineNumber || lineNumber.length === 0) {
+                    lineNumber = getQueryParameterValue(window.location.href,'number');
+                }
+                if(undefined !== lineNumber && lineNumber.length !== 0) {
+                    queryParameter += '&number='+lineNumber;
+                }
+                var queryParamSource = $('#troubleShootJsonSourceUrl').val();
+                if(undefined === queryParamSource || queryParamSource.length ===0) {
+                    queryParamSource = getQueryParameterValue(window.location.href,'source');
+                }
+                if(undefined !== queryParamSource && queryParamSource.length !==0) {
+                    redirectUrl += '?'+queryParameter;
+                    var number ='';
+                    if(undefined !== lineNumber && lineNumber.length !==0) {
+                        number = '&number='+lineNumber;
+                    }
+                    var url = '/rest/v1/myspark/secure/accountlineselect?redirectUrl='+encodeURIComponent(redirectUrl)+number;
+                    redirectUrl = url;
+                }else{
+                    redirectUrl = $('#cp-redirection-url').val()+'?'+queryParameter;
+                }
+                submitPageJourney(pageJourney, redirectUrl);
+            }else{
+                redirectUrl = $('#troubleShootJsonSourceUrl').val();
+                if(undefined === redirectUrl || redirectUrl.length === 0){
+                    redirectUrl = getQueryParameterValue(window.location.href,'source');
+                }
+                if(undefined !== redirectUrl && redirectUrl.length !== 0){
+                    var deviceAgent = navigator.userAgent.toLowerCase();
+                    if ((deviceAgent.match(/iphone/i)) || (deviceAgent.match(/android/i))) {
+                        window.location = $(this).attr("href");
+                    }else{
+                        window.location = redirectUrl;
+                    }
+                }else{
+                    window.location = $(this).attr("href");
+                }
+            }
+        }
+    });
+
+    function submitPageJourney(data, redirectUrl) {
+        $.ajax({
+            dataType: 'json',
+            type: 'POST',
+            url: '/rest/v1/help/troubleshoot/pagejourney',
+            contentType: 'application/x-www-form-urlencoded',
+            data: data,
+            timeout: 30000,
+            success: function (data, textStatus, jqXHR) {
+                var responseText = JSON.parse(jqXHR.responseText);
+                if(responseText.success){
+                    window.location = redirectUrl;
+                }
+            },
+            error: function (err) {
+            }
+        });
+    }
+});
+
+function buildStaticPages(jsonData, jsonDescriptionData, pageId) {
+    var htmlString = '', buttonString = '', nextButtonString = '';
+    $("section.sp-help-troubleshoot").html('');
+    var divClass = [ 'sp-help-troubleshoot-restart', 'sp-help-troubleshoot-cables', 'sp-help-troubleshoot-lights' ], defaultUrl = '';
+    for (var i = 0; i < jsonData.length; i++) {
+        var hideClass = 'hide';
+        if (pageId.length) {
+            if (pageId === jsonData[i].id) {
+                hideClass = '';
+            }
+        }
+        htmlString += '<div class="sp-help-ts-block second ' + divClass[i] + ' ' + hideClass + ' ' + jsonData[i].id + '">'
+                + '<div class="form-sub-heading-super row">' + '<div class="col-xs-12">' + '<p class="col-xs-12 col-sm-12 left-sub left-sub-super no-padding">'
+                + jsonData[i].title + '</p>' + '</div>' + '</div>' + '<div class="card clearfix primary animated sp-help-conn-block animated" >'
+                + '<div class="inner-card">' + '<div class="sp-help-troubleshoot-panel main-panel">' + '<div class="sp-help-ts-panel">' + '<p>'
+                + jsonDescriptionData.troubleshooting[i].description + '</p>' + '<h5 class="sp-help-ts-title">' + jsonData[i].question + '</h5>';
+        if (jsonData[i].options[0].type === 'button') {
+            htmlString += '<ul class="sp-help-ts-faq" id="sp-help-ts-accordion">';
+            buttonString = '';
+            for (var j = 0; j < jsonData[i].options.length; j++) {
+                if (j !== 0) {
+                    if (jsonData[i].options[j].nextpage.length === 0) {
+                        defaultUrl = jsonData[i].options[j].defaultURL;
+                    } else {
+                        defaultUrl = 'javascript:void(0)';
+                    }
+                    buttonString += '<li>' + '<div>' + '<a href="' + defaultUrl + '"  data-page="'+jsonData[i].id+'" data-target="' + jsonData[i].options[j].nextpage + '" data-journey="'+jsonData[i].title+'">'
+                            + '<span>' + jsonData[i].options[j].name + '</span>' + '<i class="sp-help-ts-icon icon-arrow-right"></i>'
+                            + '<div class="clearfix"></div>' + '</a>' + '</div>' + '</li>';
+                }
+            }
+        } else if (jsonData[i].options[0].type === 'checkbox') {
+            htmlString += '<ul class="sp-help-chkLightsStatus">';
+            buttonString = '';
+            for (j = 0; j < jsonData[i].options.length; j++) {
+                if (j !== 0) {
+                    buttonString += '<li>' + '<div class="form-wrapper-section col-sm-12">' + '<input type="checkbox" name="' + jsonData[i].title
+                            + '" id="'+ jsonData[i].id + "_" + j + '" class="custom-checkbox" value="' + jsonData[i].options[j].value.toLowerCase() + '">'
+                            + '<label for="'+ jsonData[i].id + "_" + j + '">' + jsonData[i].options[j].name + '</label>' + '</div>' + '</li>';
+                }
+            }
+            if (jsonData[i].nextpage.length === 0) {
+                defaultUrl = jsonData[i].defaultURL;
+            } else {
+                defaultUrl = jsonData[i].nextpage;
+            }
+            nextButtonString = '<div class="row action-row">' + '<div class="col-md-12 col-xs-12">'
+                    + '<button type="submit" id="cp_new_next" class="form-button chevron right pull-left troubleshoot-next-button" data-page="'+jsonData[i].id+'" data-journey="'+jsonData[i].title+'" data-target="' + defaultUrl
+                    + '">Next</button>' + '</div>' + '</div>';
+        }
+        htmlString += buttonString + '</ul></div></div>' + nextButtonString + '</div></div></div>';
+        $("section.sp-help-troubleshoot").html(htmlString);
+        $('.'+pageId+' .troubleshoot-next-button').css('background-color','#bbb');
+        buttonString = '';
+    }
+}
+
+function iterateJsonData(jsonData) {
+    var troubleShootData = jsonData.troubleshooting;
+    var jsonDescriptionData = JSON.parse($('#troubleShootDescriptionJson').val());
+    buildStaticPages(troubleShootData, jsonDescriptionData, 'page-0');
+}
+
+function getQueryParameterValue(redirectURL, queryString){
+    var url = decodeURIComponent(redirectURL);
+    url = url.split(url.indexOf('?') >-1 ? '?':'&');
+    if(url[1] !== undefined){
+        url = url[1].split('&');
+        for(var i=0;i<url.length;i++){
+            var queryParamKey = url[i].split('=')[0];
+            if(queryParamKey === queryString){
+                return url[i].split('=')[1];
+            }
+        }
+    }
+}
+
+
+$(document).ready(function() {
+    $("a[data-target='#emailThisPage']").on('click', function() {
+        $(".cmp-onespark-modal .modal-details").show();
+        $(".email-page-error").addClass('hide');
+        if ($("#email-captcha-wrapper1 #recaptcha-html-element").length) {
+            $("#email-captcha-wrapper1 #recaptcha-html-element").remove();
+        }
+        $("#emailThisForm small.error").hide();
+        $("#emailThisPage input,#emailThisPage textarea").val('');
+    });
+    $("#try-again-send-email").on("click", function() {
+        $(".cmp-onespark-modal .modal-details").show();
+        $(".email-page-error").addClass('hide');
+    });
+    formValidation();
+});
+var addFBValidation = function() {
+    var thankYouBlock = $(".thank-you-block").html();
+    var emailForm = $("#emailThisForm");
+    if (emailForm.length) {
+        var ajaxUrl = emailForm.attr('action');
+        var emailData = emailForm.serialize();
+        var snackbar = snackbarService();
+        snackbar.hideAllSnackbars();
+        $.ajax({
+            url : ajaxUrl,
+            type : "POST",
+            data : emailData,
+            dataType : 'json',
+            success : function(data) {
+                if (data.isSuccessful) {
+                    $(".email-page-error").addClass('hide');
+                    var recipientIds = "";
+                    for (var i = 1; i <= 3; i++) {
+                        if (undefined !== $('#emailRecipient' + i).val() && $('#emailRecipient' + i).val().length) {
+                            recipientIds += "<p>" + $('#emailRecipient' + i).val() + "</p>";
+                        }
+                    }
+                    $('.email-recipients-id').html(recipientIds);
+                    snackbar.showSuccessSnackbar(thankYouBlock);
+                    $(".cmp-onespark-modal").modal('hide');
+                } else if (!data.captchaValid) {
+                    resetCaptcha();
+                    $("<small id='email-captcha-error1' class='error help-block'>Input required - please try again</small>").insertAfter($("#email-captcha-wrapper1"));
+                    $('#g-recaptcha-response-1').removeClass('valid');
+                } else {
+                    $(".email-page-error").removeClass('hide');
+                    $(".cmp-onespark-modal .modal-details").hide();
+                }
+            },
+            error : function() {
+                $(".email-page-error").removeClass('hide');
+                $(".cmp-onespark-modal .modal-details").hide();
+            },
+            complete : function() {
+                $("#emailThisPage input,#emailThisPage textarea").val('');
+            }
+        });
+    }
+};
+var addingCaptcha = function() {
+    var delay = 1000;
+    setTimeout(function() {
+        $('#recaptcha-html-element-emailThisPage').appendTo($("#email-captcha-wrapper1"));
+    }, delay);
+};
+var formValidation = function() {
+    $("#emailThisForm").validate({
+        ignore : ".skipValidate,.skipValidateSection", // ignore hidden fields,
+                                                        // but not hidden inputs
+        errorClass : "error",
+        errorElement : "small",
+        rules : {
+            firstName : {
+                required : true
+            },
+            lastName : {
+                required : true
+            },
+            emailAddress : {
+                required : true,
+                email : true
+            },
+            emailRecipient1 : {
+                required : true,
+                email : true
+            },
+            emailRecipient2 : {
+                email : true
+            },
+            emailRecipient3 : {
+                email : true
+            }
+        },
+        messages : {
+            firstName : {
+                required : "Please enter your first name"
+            },
+            lastName : {
+                required : "Please enter your last name"
+            },
+            emailAddress : {
+                required : "Please enter your email address",
+                email : "Your email address is invalid, please re-enter"
+            },
+            emailRecipient1 : {
+                required : "Please enter your email address",
+                email : "Your email address is invalid, please re-enter"
+            },
+            emailRecipient2 : {
+                email : "Your email address is invalid, please re-enter"
+            },
+            emailRecipient3 : {
+                email : "Your email address is invalid, please re-enter"
+            }
+        },
+        submitHandler : function(form, event) {
+            addFBValidation();
+        },
+        errorPlacement : function(error, element) {
+            var $errorElement = element.closest(".form-element-container").find(":first .help-block.error");
+            error.addClass("help-block");
+            if ($errorElement.length !== 0) {
+                $errorElement.replaceWith(error);
+            } else {
+                element.parent().parent().append(error);
+            }
+        }
+    });
+    addingCaptcha();
+};
+/*function to redirect page if view custom url available otherwise shows error modal.*/
+function redirectionUrl() {
+    var redirectionUrl = $('#viewUrl').val();
+    if (redirectionUrl === "") {
+        $('#viewCustomUrl').attr("data-toggle", "modal");
+        $('#viewCustomUrl').attr("data-target", "#viewCustomUrlModal");
+        $('#viewCustomUrl').attr("href", "#");
+    } else {
+        window.location.href = redirectionUrl;
+    }
+};
+$(document).ready(function() {
+
+    /*logic to hide the page numbers more than 5 on page load. when the page loads based on the current page number next 4 page numbers will be displayed */
+    var currentPageNo = $('#pagination').data('currentpageno');
+    if(typeof currentPageNo !== "undefined") {
+        currentPageNo = parseInt(currentPageNo);
+        $($("#pagination")).find('li').each(function() {
+            var pageNumber = $(this).data('id');
+            if(pageNumber > (currentPageNo+4) || pageNumber < (currentPageNo-4)) {
+                $(this).find('a').addClass("hide");
+            } 
+        });
+    }
+
+    /*Listener for sortby dropdown change. page will be reloaded in sorted order if the sortBy is changed to A-Z or Z-A from current value*/
+    $('#sortby-dropdown li').on('click', function() {
+        var sortBy = $(this).text(); 
+        if(sortBy !== "" && sortBy !== undefined && sortBy !== 'select' && typeof $("#pageUrl").val() !== "undefined") {
+            if(typeof $("#preselectedSortBy").val() === "undefined" || !$("#preselectedSortBy").val() || $("#preselectedSortBy").val() !== sortBy) {
+                var redirectPath = $("#pageUrl").val();
+                if(typeof $("#isPublish").val() !== "undefined" && $("#isPublish").val() === 'true') {
+                    redirectPath = redirectPath.replace('.html','');
+                }
+                window.location.href = redirectPath+"?sortBy=" + sortBy;
+            } 
+        }
+    });
+	//Add css on dropdown 
+    if ($(".dropdown-enhanced-select").length) {
+        $(".dropdown-enhanced-container .dropdown-enhanced-label").addClass("dropdown-enhanced-close");
+    }
+});
+$(document).ready(function() {
+    if ($('.cmp-gsa-notification--container').length) {
+        var url = $('#hiddenCsiUrl').val();
+        $("#contentCsi").empty();
+        if (typeof url !== 'undefined' && url != null && url !== "") {
+            $.ajax({
+                url : url,
+                async : true,
+                data : {
+                    url : url
+                },
+                dataType : 'json',
+                success : function(response) {
+                    if (response.results) {
+                        for (var i = 0; i < response.results.length; i++) {
+                            var metatag0 = response.results[i].meta_tags[0];
+                            var metatag1 = response.results[i].meta_tags[1];
+                            if (metatag1.name === "category" && metatag1.value === "csi" && metatag0.name === "keywords") {
+                                var template = $('#csi-notification-tmpl').html();
+                                var notificationContent = $(template).clone();
+                                notificationContent.find(".notification-url").attr("href", response.results[i].url);
+                                notificationContent.find(".notification-title").text(response.results[i].title);
+                                if (response.results[i].meta_tags[0].value.indexOf('urgent') > -1) {
+                                    notificationContent.find(".urgent").removeClass('hide');
+                                }
+                                $("#contentCsi").append(notificationContent);
+                            }
+                        }
+                    }
+                },
+                error : function(error) {
+                    if (error.responseJSON !== undefined) {
+                        displayError(error.responseJSON);
+                    }
+                }
+            });
+        }
+    }
+});
+$(document).ready(function() {
+    var url = $('#hiddenNewsUrl').val();
+    if (typeof url !== 'undefined' && url != null && url !== "") {
+        $.ajax({
+            url : url,
+            async : true,
+            data : {
+                url : url
+            },
+            dataType : 'json',
+            success : function(data) {
+                populateNewsFeed(data);
+            },
+            error : function(error) {
+                if (error.responseJSON !== undefined) {
+                    displayError(error.responseJSON);
+                }
+            }
+        });
+    }
+});
+
+function populateNewsFeed(data) {
+
+    for (var index = 0; index < data.results.length; index++) {
+        var metatag = data.results[index].meta_tags;
+        var firstpublishdate;
+        var updatedate;
+        for (var j = 0; j < metatag.length; j++) {
+            if (metatag[j].name === "firstpublishdate") {
+                var tempDate1 = metatag[j].value;
+                if (typeof tempDate1 !== 'undefined' && tempDate1 != null && tempDate1 !== "") {
+                    var tempdate1Array = tempDate1.split('/');
+                    firstpublishdate = tempdate1Array[1] + '/' + tempdate1Array[0] + '/' + tempdate1Array[2];
+                }
+            }
+            if (metatag[j].name === "updatedate") {
+                var tempDate2 = metatag[j].value;
+                if (typeof tempDate2 !== 'undefined' && tempDate2 != null && tempDate2 !== "") {
+                    var tempdate2Array = tempDate2.split('/');
+                    updatedate = tempdate2Array[1] + '/' + tempdate2Array[0] + '/' + tempdate2Array[2];
+                }
+            }
+        }
+        for (var i = 0; i < metatag.length; i++) {
+            if (typeof firstpublishdate === 'undefined') {
+                firstpublishdate = "";
+            }
+            if (typeof updatedate === 'undefined') {
+                updatedate = "";
+            }
+            if (metatag[i].name === "state" && metatag[i].value === "new") {
+                var divMain = $("<div class='cmp-news-feeds__item'><span class='status-stamp green_bg small bottom-spacing-8'>New</span><h4 class='cmp-news-feeds--title'><a href='"
+                        + data.results[index].url
+                        + "'>"
+                        + data.results[index].title
+                        + "</a></h4><span class='cmp-news-feeds--date'>"
+                        + firstpublishdate
+                        + "</span><p>" + data.results[index].summary);
+                $("#content-news-feed").append(divMain);
+            }
+        }
+        for (var k = 0; k < metatag.length; k++) {
+            if (metatag[k].name === "state" && metatag[k].value === "updated") {
+                var div_Main = $("<div class='cmp-news-feeds__item'><span class='status-stamp purple_bg small bottom-spacing-8'>Updated</span><h4 class='cmp-news-feeds--title'><a href='"
+                        + data.results[index].url
+                        + "'>"
+                        + data.results[index].title 
+                        + "</a></h4><span class='cmp-news-feeds--date'>"
+                        + updatedate);
+                $("#content-news-feed").append(div_Main);
+            }
+        }
+    }
+
+}
+
+
+    // Cancel feedback Message
+    function resetFeedbackDialog() {
+        $('.feedback-container').removeClass('hide');
+        $('#feedback-error-alert').addClass('hide');
+        $('#feedbackMessage').val('');
+    }
+    
+    // Show Error or Success
+    function showErrorMessage(errorMsg) {
+        $('.feedback-container').addClass('hide');
+        $('#feedback-error-alert').removeClass('hide');
+        $('.error-container-desc p').html(errorMsg);
+    }
+    
+    // Send Feedback
+    function sendFeedback() {
+        var feedbackMessage = $('#feedbackMessage').val();
+        var pageName = $('title').text();
+        var pageURL = window.location.href;
+        var snackbar = snackbarService();
+        snackbar.hideAllSnackbars();
+        
+        if (feedbackMessage.length === 0) {
+            showErrorMessage("No feedback was entered. Please enter some valid useful feedback.");
+        } else if (feedbackMessage.length <= 10) {
+            showErrorMessage("Please ensure you enter valid, useful feedback.");
+        } else {
+            $.ajax({
+                type: "post",
+                dataType: "json",
+                data: {
+                    pageTitle: pageName,
+                    feedback: feedbackMessage,
+                    pageURL: pageURL
+                },
+                url: "/ibase/forms/feedback/add",
+                success: function (data) {
+                    if (data["success"]) {
+                        document.getElementById('sendFeedbackButton').disabled=true;
+                        snackbar.showSuccessSnackbar("Success! Thank you for your feedback");
+                        $('.modal-dialog').addClass('hide');
+                    } else {
+                        showErrorMessage("Oops, something went wrong :( ");
+                    }
+                },
+                error: function(xhr, status, err) {
+                    showErrorMessage("Sorry, something went wrong. Please try sending again.");  
+                }
+            });                          
+        }
+    }
+
+$(document).ready(function() {
+	$("#sendFeedbackButton").click(function() {
+		sendFeedback();
+	});     
+    
+    $("#kb-feedback, #try-again").click(function() {
+        resetFeedbackDialog();
+    });
+});
+
+
+

@@ -1,0 +1,308 @@
+if (!window._genesys) window._genesys = {};
+if (!window._gt) window._gt = [];
+
+window._genesys.widgets = {
+	main: {
+		plugins: [
+			'cx-webchat-service',
+			'cx-webchat',
+			'cx-call-us',
+			'cx-channel-selector',
+			//'cx-chat-deflection',
+			'cx-console',
+			//'cx-send-message-service',
+			//'cx-send-message',
+			//'cx-gwe',
+			//'cx-cobrowse',
+			//'cx-appointment',
+			//'cx-calendar',
+			//'cx-callback-service',
+			//'cx-callback',
+			//'cx-search',
+			//'cx-knowledge-center-service',
+			'cx-stats-service'
+			//'cx-sidebar'
+			//'cx-offers',
+			//'cx-preferences',
+		],
+		customStylesheetID: 'gwc',
+		debug: gwc_environment.debug,
+		deploymentID: '',
+		downloadGoogleFont: false,
+		i18n: i18n,
+		lang: 'en-NZ',
+		mobileMode: 'auto',
+		mobileModeBreakpoint: 600,
+		theme: 'default',
+		themes: {
+			default: 'cx-theme-default'
+		},
+	},
+	webchat: {
+		actionsMenu: false,
+		ajaxTimeout: 30000,
+		async: {
+			enabled: false,
+			getSessionData: function(sessionData, Cookie, CookieOptions) {
+				Cookie.set('_genesys.widgets.webchat.async', JSON.stringify(sessionData), CookieOptions);
+			},
+			newMessageRestoreState: 'minimized',
+			setSessionData: function(Open, Cookie, CookieOptions) {
+				return Cookie.get('_genesys.widgets.webchat.async');
+			}
+		},
+		autoInvite: {
+			enabled: false,
+			inviteTimeoutSeconds: 30,
+			timeToInviteSeconds: 5
+		},
+		charCountEnabled: true,
+		chatButton: {
+			effect: 'slide',
+			effectDuration: 300,
+			enabled: false,
+			hideDuringInvite: true,
+			html: '',
+			openDelay: 1000
+		},
+		cometD: {
+			apiURL: '',
+			channel: '',
+			cometURL: gwc_environment.gmsName + '/cometd',
+			enabled: false,
+			logLevel: 'info',
+			websocketEnabled: true
+		},
+		confirmFormCloseEnabled: true,
+		dataURL: gwc_environment.gmsName + '/2/chat/' + gwc.getServiceName(),
+		emojis: false,
+		form: {
+			wrapper: '<table></table>',
+			inputs: [
+				{
+					id: 'cx_webchat_form_firstname',
+					name: 'firstname',
+					maxlength: '100',
+					placeholder: '@i18n:webchat.ChatFormPlaceholderFirstName',
+					label: '@i18n:webchat.ChatFormFirstName'
+				},
+				{
+					id: 'cx_webchat_form_lastname',
+					name: 'lastname',
+					maxlength: '100',
+					placeholder: '@i18n:webchat.ChatFormPlaceholderLastName',
+					label: '@i18n:webchat.ChatFormLastName'
+				},
+				{
+					id: 'cx_webchat_form_email',
+					name: 'email',
+					maxlength: '100',
+					placeholder: '@i18n:webchat.ChatFormPlaceholderEmail',
+					label: '@i18n:webchat.ChatFormEmail'
+				},
+				{
+					id: 'cx_webchat_form_subject',
+					name: 'subject',
+					maxlength: '100',
+					placeholder: '@i18n:webchat.ChatFormPlaceholderSubject',
+					label: '@i18n:webchat.ChatFormSubject'
+				}
+			]
+		},
+		maxMessageLength: 150,
+		minimizeOnMobileRestore: false,
+		timeFormat: 24,
+		uploadsEnabled: false,
+		userData: {
+			ConnectionID: gwc.getConnectionID(),
+			IPaddress: gwc_IP,
+			PageTag: gwc.getTag(),
+			BroadbandDiagnosticJourney: gwc.getParameter('journey'),
+			BroadbandDiagnosticServiceID: gwc.getParameter('serviceID'),
+			VHQueue: gwc.getParameter('q'),
+			UserAgent: gwc.getUserAgent()
+		}
+	},
+	callus: {
+		contacts: [
+			{
+				displayName: 'General',
+				i18n: 'Number001',
+				number: '123'
+			},
+			{
+				displayName: 'Faults, Lost / Stolen Mobiles',
+				i18n: 'Number002',
+				number: '120'
+			},
+			{
+				displayName: 'Business',
+				i18n: 'Number003',
+				number: '126'
+			}
+		],
+		hours: [
+			'7am - 8pm Mon - Fri',
+			'8am - 6pm Sat - Sun'
+		]
+	},
+	channelselector: {
+		channels: [
+			{
+				clickCommand: 'ChatDeflector.open',
+				displayName: 'Live Chat',
+				enable: true,
+				ewt: {
+					availabilityThresholdMax: 100000,
+					availabilityThresholdMin: 1800,
+					display: true,
+					hideChannelWhenThresholdMax: false,
+					queue: 'Chat_Mass_vq'
+				},
+				i10n: 'ChatTitle',
+				icon: 'chat',
+				html: '<img src="' + gwc_environment.serverName + '/content/dam/kb/public/images/icon-chat-blue-secondary.png">',
+				readyEvent: 'ChatDeflector.ready'
+			},
+			{
+				clickCommand: 'ServiceStatus.open',
+				displayName: 'Service Status',
+				enable: true,
+				icon: 'chat',
+				html: '<img src="' + gwc_environment.serverName + '/content/dam/kb/public/images/icon-info-blue-secondary.png">'
+			}
+		],
+		ewtRefreshInterval: 10
+	},
+	console: {
+		open: false
+	},
+	sidebar: {
+		showOnStartup: false,
+		position: 'right',
+		expandOnHover: false,
+		channels: [
+			{
+				name: 'ChatDeflector',
+				clickCommand: 'ChatDeflector.open',
+				readyEvent: 'ChatDeflector.ready',
+				clickOptions: {},
+				displayName: 'Chat with us',
+				displayTitle: 'Chat with us',
+				icon: 'chat'
+			}
+		]
+	},
+	stats: {
+		ewt: {
+			dataURL: gwc_environment.gmsName + '/1/service/ewt-for-vq'
+		}
+	},
+	speechstorm: {
+		baseURL: gwc_environment.giamsName
+	},
+	extend: {
+		Analytics: {
+
+		},	
+		Alert: {
+			homeDir: gwc_environment.serverName + '/content/dam/kb/public/audio/',
+			newMessageAlert: 'New Spark Message!',
+			newMessageFile: 'alert-message.wav',
+			titleDelay: 700
+		},
+		Avatar: {
+			agentList: ['spark','spark\'s virtual assistant','adrian','aidan','aimee','alaina','alyse','amalia','amber','amy','andrew','ann','anna','anna d','anna w','annie','anny','anslie','astrid','callie','cameron','candice','carlo','casey','cassie','charles','charley','chelsi','chloe','christian','cecilia','cindy','claire','colin','daniel','dan','dani','danielle','darryn','david','dean','dilini','donelle','donna','eileen','elizabeth','ella','emily','emily r','emma','erin','esther','gareth','gemma','georgia','gicel','gihan','grace','greg','haden','haidee','haley','hamish','hayley','hannah','heliena','heni','izaz','jaci','james','james l','jan','jasmine','jb','jhoneme','joanne','john','josh','jp','junie','julie','julius','jun','kane','kasie','katharine','katherine','kathryn','katie','katrina','kay','kellie','kelly','ken','kevin','khurram','kimberlee','kriss','lauren','lee','liam','lillian','lisa','lisa b','lisa s','loren','luke','luke c','luke m','maria','maria h','maricel','mary','mason','matt','megan','mia','michael','michelle','mike f','mimi','mike','natasha','neha','nia','nicholas','nicole','pam','pammella','pat','patrick','paul','paula','phoebe','pooja','prudence','queen vic','rachel','ramoncito','ravi','rebecca','renee n','rhoda','richard','roger','roshan','russell','ruth','sandra','santana','sarah','sharn','sharon','shayna','sohpie','stevie','susan','swpna','tai','tanaya','tanique','tanya','tash','tatiana','teresa','tereza','terry','thomas','tracey','tracy','tristan','tyler','vanessa','vincent','yogi'],
+			agentNameDefault: 'default',
+			animatedFormat: 'gif',
+			default: '',
+			homeDir: gwc_environment.serverName + '/content/dam/kb/public/images/avatar/',
+			staticFormat: 'png'
+		},
+		Bot: {
+			agentList: ['spark\'s virtual assistant','spark'], // Added to agent list? Also update setChatFormBotConnectMessage()
+			clientFirstName: 'Spark',
+			clientLastName: 'Customer',
+			closeOption: false,
+			formatList: ['png','png']
+		},
+		ChatDeflector: {
+			answerTitle: 'Suggested Topics',
+			api: gwc_environment.serverName + '/rest/v1/onespark/search?site=spark&collection=help_and_support',
+			delay: 1000,
+			emailTitle: 'Can\'t find what you\'re looking for?',
+			maxResult: 5,
+			minQueryLength: 1,
+			title: 'How can we help?',
+			typeDelay: 1000
+		},
+		ChatStatus: {
+			ewtDescription: 'Estimated wait time:',
+			ewtThresholdDisplayDefault: 'Within',
+			ewtThresholdDisplayMax: 'Soon as possible.',
+			ewtThresholdIntervalMax: 900,
+			ewtThresholdDisplayMin: 'Within 1 minute.',
+			ewtThresholdIntervalMin: 60,
+			title: 'Chat Closed'
+		},
+		Configuration: {
+			autoLaunch: true,
+			autoLaunchList: ['/help/contacts/support/book-a-call/', '/help/contacts/support/phone-numbers/', '/help/contacts/support/book-a-call', '/help/contacts/support/phone-numbers', 'nz/book-a-call/', 'nz/phone-numbers/', 'nz/book-a-call', 'nz/phone-numbers'],
+			api: gwc_environment.gmsName + '/1/service/widget-config',
+			appChatURL: '/help/app-chat/',
+			contactChatURL: '?type=chat',
+			smsChatURL: 'contactus?q='
+		},
+		Floater: {
+			icon: gwc_environment.serverName + '/content/dam/kb/public/images/icon-chat.png',
+			iconHover: gwc_environment.serverName + '/content/dam/kb/public/images/icon-chat-hover.png',
+			title: 'Chat with us'
+		},
+		Help: {
+			emailTroubleshootingURL: '/help/get-more/xtra-troubleshooting/'
+		},
+		MySpark: {
+			authURL: gwc_environment.gmsName + '/auth.jsp',
+			secureAuthURL: gwc_environment.serverName + '/secure/myspark/thank-you/'
+		},
+		PushURL: {
+			domainList: ['spark.co.nz']
+		},
+		State: {
+			bot: '_genesys.widgets.webchat.state.bot',
+			height: '_genesys.widgets.webchat.state.height',
+			history: '_genesys.widgets.webchat.state.history',
+			minimise: '_genesys.widgets.webchat.state.minimized',
+			open: '_genesys.widgets.webchat.state.open',
+			session: '_genesys.widgets.webchat.state.session',
+			unreadMessageCount: '_genesys.widgets.webchat.state.asyncUnreadMessageCount',
+			uuid: '_genesys.widgets.webchat.state.uuid',
+			width: '_genesys.widgets.webchat.state.width'
+		},
+		Stats: {
+			ewtURL: gwc_environment.gmsName + '/1/service/ewt-for-vq'
+		},
+		ServiceStatus: {
+			landlineURL: gwc_environment.serverName + '/help/servicealert/phoneservicealert/',
+			mailURL: gwc_environment.serverName + '/help/servicealert/emailservicealert/',
+			mobileURL: gwc_environment.serverName + '/help/servicealert/mobileservicealert/',
+			internetURL: gwc_environment.serverName + '/help/servicealert/broadbandservicealert/'
+		},
+		UI: {
+			channelSelectorDescription: '',
+			characterMaxBot: 150,
+			characterMaxChat: 150,
+			characterRemainingDescription: '/ 150',
+			chatEndedTitle: 'Chat ended',
+			chatToAgentMessage: 'Requesting transfer...',
+			chatToAgentUnit: 'Requesting agent transfer...',
+			chatButtonTitle: 'Chat Now',
+			chatIcon: gwc_environment.serverName + '/content/dam/kb/public/images/icon-chat-pink-secondary.png',
+			chatIconTitle: 'Live Chat',
+			chatPrivacyPolicyHTML: '<li class="cx-privacy-policy"><a href="#" class="gwc-action-text" data-message="">Privacy Policy</a></li>',
+			chatTitle: ['Live Chat','Chatbot - Ask Ivy'], // index = hasActiveBot ? 1 : 0
+			domain: 'spark.co.nz',
+			transcriptInfo: 'Your chat transcript will be sent by email.'
+		}
+	}
+};
